@@ -1,0 +1,144 @@
+[
+  // AWS EC2 Rules
+  {"id": "TS001", "target": "AWSEC2", "condition": "not element.isEncrypted", "description": "Unencrypted EBS volume on EC2", "recommendation": "Enable encryption at rest using AWS KMS"},
+  {"id": "TS002", "target": "AWSEC2", "condition": "not element.implementsAuthenticationScheme", "description": "Unauthenticated SSH access to EC2", "recommendation": "Use IAM roles and disable password-based SSH"},
+
+  // AWS S3 Rules
+  {"id": "TS003", "target": "AWSS3", "condition": "element.isPublic", "description": "Publicly accessible S3 bucket", "recommendation": "Set bucket policy to deny public access"},
+  {"id": "TS004", "target": "AWSS3", "condition": "not element.isEncrypted", "description": "Unencrypted S3 bucket", "recommendation": "Enable default encryption with SSE-S3 or KMS"},
+  {"id": "TS005", "target": "AWSS3", "condition": "not element.implementsAuthenticationScheme", "description": "S3 bucket without IAM access control", "recommendation": "Use IAM policies or bucket ACLs"},
+
+  // AWS Lambda Rules
+  {"id": "TS006", "target": "AWSLambda", "condition": "not element.implementsAuthenticationScheme", "description": "Lambda function without execution role", "recommendation": "Assign an IAM role with least privilege"},
+  {"id": "TS007", "target": "AWSLambda", "condition": "not element.isEncrypted", "description": "Unencrypted environment variables in Lambda", "recommendation": "Use AWS KMS to encrypt environment variables"},
+
+  // AWS RDS Rules
+  {"id": "TS008", "target": "AWSRDS", "condition": "not element.isEncrypted", "description": "Unencrypted RDS instance", "recommendation": "Enable encryption at rest with KMS"},
+  {"id": "TS009", "target": "AWSRDS", "condition": "not element.implementsAuthenticationScheme", "description": "RDS without IAM database authentication", "recommendation": "Enable IAM database authentication"},
+
+  // AWS DynamoDB Rules
+  {"id": "TS010", "target": "AWSDynamoDB", "condition": "not element.isEncrypted", "description": "Unencrypted DynamoDB table", "recommendation": "Enable server-side encryption with KMS"},
+  {"id": "TS011", "target": "AWSDynamoDB", "condition": "not element.implementsAuthenticationScheme", "description": "DynamoDB without fine-grained access control", "recommendation": "Use IAM policies with condition keys"},
+
+  // AWS EKS Rules
+  {"id": "TS012", "target": "AWSEKS", "condition": "not element.isEncrypted", "description": "EKS cluster without encrypted control plane", "recommendation": "Enable envelope encryption for EKS"},
+  {"id": "TS013", "target": "AWSEKS", "condition": "not element.implementsAuthenticationScheme", "description": "EKS without RBAC or IAM integration", "recommendation": "Enable Kubernetes RBAC and AWS IAM authenticator"},
+
+  // AWS ECS Rules
+  {"id": "TS014", "target": "AWSECS", "condition": "not element.isEncrypted", "description": "ECS task without encrypted storage", "recommendation": "Use encrypted EBS volumes or Fargate with encryption"},
+  {"id": "TS015", "target": "AWSECS", "condition": "not element.implementsAuthenticationScheme", "description": "ECS without task role", "recommendation": "Assign IAM roles to ECS tasks"},
+
+  // AWS API Gateway Rules
+  {"id": "TS016", "target": "AWSAPIGateway", "condition": "not element.isEncrypted", "description": "API Gateway without TLS", "recommendation": "Enforce TLS 1.2+ for all endpoints"},
+  {"id": "TS017", "target": "AWSAPIGateway", "condition": "not element.implementsAuthenticationScheme", "description": "API Gateway without authentication", "recommendation": "Use IAM, Lambda authorizers, or Cognito"},
+  {"id": "TS018", "target": "AWSAPIGateway", "condition": "not element.sanitizesInput", "description": "API Gateway vulnerable to injection", "recommendation": "Use request validation and WAF"},
+
+  // AWS SQS Rules
+  {"id": "TS019", "target": "AWSSQS", "condition": "not element.isEncrypted", "description": "Unencrypted SQS queue", "recommendation": "Enable server-side encryption with KMS"},
+  {"id": "TS020", "target": "AWSSQS", "condition": "not element.implementsAuthenticationScheme", "description": "SQS without access policy", "recommendation": "Use IAM policies to restrict access"},
+
+  // AWS SNS Rules
+  {"id": "TS021", "target": "AWSSNS", "condition": "not element.isEncrypted", "description": "Unencrypted SNS topic", "recommendation": "Enable encryption with KMS"},
+  {"id": "TS022", "target": "AWSSNS", "condition": "not element.implementsAuthenticationScheme", "description": "SNS without subscription authentication", "recommendation": "Use IAM roles or subscription filters"},
+
+  // AWS Elastic Beanstalk Rules
+  {"id": "TS023", "target": "AWSEB", "condition": "not element.isEncrypted", "description": "Unencrypted Elastic Beanstalk environment", "recommendation": "Enable encryption for EBS volumes and data"},
+  {"id": "TS024", "target": "AWSEB", "condition": "not element.implementsAuthenticationScheme", "description": "Elastic Beanstalk without IAM role", "recommendation": "Assign an IAM role to the environment"},
+
+  // AWS CloudFront Rules
+  {"id": "TS025", "target": "AWSCloudFront", "condition": "not element.isEncrypted", "description": "CloudFront without TLS", "recommendation": "Enforce TLS 1.2+ for distributions"},
+  {"id": "TS026", "target": "AWSCloudFront", "condition": "not element.implementsAuthenticationScheme", "description": "CloudFront without origin authentication", "recommendation": "Use signed URLs or OAI"},
+
+  // AWS ALB Rules
+  {"id": "TS027", "target": "AWSALB", "condition": "not element.isEncrypted", "description": "Application Load Balancer without TLS", "recommendation": "Enforce TLS 1.2+ on listeners"},
+  {"id": "TS028", "target": "AWSALB", "condition": "not element.implementsAuthenticationScheme", "description": "ALB without authentication", "recommendation": "Integrate with Cognito or OIDC"},
+
+  // AWS NLB Rules
+  {"id": "TS029", "target": "AWSNLB", "condition": "not element.isEncrypted", "description": "Network Load Balancer without TLS", "recommendation": "Enable TLS termination or passthrough"},
+  {"id": "TS030", "target": "AWSNLB", "condition": "not element.implementsAuthenticationScheme", "description": "NLB without target authentication", "recommendation": "Use VPC security groups or IAM"},
+
+  // AWS WAF Rules
+  {"id": "TS031", "target": "AWSWAF", "condition": "not element.sanitizesInput", "description": "WAF without proper rules", "recommendation": "Configure rules for SQLi, XSS, and rate limiting"},
+
+  // AWS VPC Rules
+  {"id": "TS032", "target": "AWSVPC", "condition": "not element.isEncrypted", "description": "VPC without encrypted traffic", "recommendation": "Use VPC endpoints with TLS"},
+  {"id": "TS033", "target": "AWSVPC", "condition": "element.isPublic", "description": "VPC with public subnets exposed", "recommendation": "Restrict public subnet access with NACLs"},
+
+  // Azure VM Rules
+  {"id": "TS034", "target": "AzureVM", "condition": "not element.isEncrypted", "description": "Unencrypted Azure VM disk", "recommendation": "Enable Azure Disk Encryption"},
+  {"id": "TS035", "target": "AzureVM", "condition": "not element.implementsAuthenticationScheme", "description": "Unauthenticated VM access", "recommendation": "Use Azure AD or SSH keys"},
+
+  // Azure Blob Rules
+  {"id": "TS036", "target": "AzureBlob", "condition": "element.isPublic", "description": "Publicly accessible Blob storage", "recommendation": "Set access level to private"},
+  {"id": "TS037", "target": "AzureBlob", "condition": "not element.isEncrypted", "description": "Unencrypted Blob storage", "recommendation": "Enable encryption at rest"},
+  {"id": "TS038", "target": "AzureBlob", "condition": "not element.implementsAuthenticationScheme", "description": "Blob storage without access control", "recommendation": "Use Azure AD or SAS tokens"},
+
+  // Azure Function Rules
+  {"id": "TS039", "target": "AzureFunction", "condition": "not element.isEncrypted", "description": "Unencrypted Function secrets", "recommendation": "Use Azure Key Vault"},
+  {"id": "TS040", "target": "AzureFunction", "condition": "not element.implementsAuthenticationScheme", "description": "Function without authentication", "recommendation": "Enable Azure AD or API keys"},
+
+  // Azure SQL Rules
+  {"id": "TS041", "target": "AzureSQL", "condition": "not element.isEncrypted", "description": "Unencrypted SQL database", "recommendation": "Enable Transparent Data Encryption (TDE)"},
+  {"id": "TS042", "target": "AzureSQL", "condition": "not element.implementsAuthenticationScheme", "description": "SQL without Azure AD authentication", "recommendation": "Enable Azure AD authentication"},
+
+  // Azure Cosmos DB Rules
+  {"id": "TS043", "target": "AzureCosmosDB", "condition": "not element.isEncrypted", "description": "Unencrypted Cosmos DB", "recommendation": "Enable encryption at rest"},
+  {"id": "TS044", "target": "AzureCosmosDB", "condition": "not element.implementsAuthenticationScheme", "description": "Cosmos DB without access control", "recommendation": "Use master keys or Azure AD"},
+
+  // Azure AKS Rules
+  {"id": "TS045", "target": "AzureAKS", "condition": "not element.isEncrypted", "description": "AKS without encrypted control plane", "recommendation": "Enable encryption with Key Vault"},
+  {"id": "TS046", "target": "AzureAKS", "condition": "not element.implementsAuthenticationScheme", "description": "AKS without RBAC", "recommendation": "Enable Azure RBAC"},
+
+  // Azure Container Rules
+  {"id": "TS047", "target": "AzureContainer", "condition": "not element.isEncrypted", "description": "Unencrypted container storage", "recommendation": "Use encrypted volumes"},
+  {"id": "TS048", "target": "AzureContainer", "condition": "not element.implementsAuthenticationScheme", "description": "Container without authentication", "recommendation": "Use Azure AD or managed identities"},
+
+  // Azure App Service Rules
+  {"id": "TS049", "target": "AzureAppService", "condition": "not element.isEncrypted", "description": "App Service without HTTPS", "recommendation": "Enforce HTTPS only"},
+  {"id": "TS050", "target": "AzureAppService", "condition": "not element.implementsAuthenticationScheme", "description": "App Service without authentication", "recommendation": "Enable Azure AD authentication"},
+
+  // Azure Queue Rules
+  {"id": "TS051", "target": "AzureQueue", "condition": "not element.isEncrypted", "description": "Unencrypted Queue storage", "recommendation": "Enable encryption at rest"},
+  {"id": "TS052", "target": "AzureQueue", "condition": "not element.implementsAuthenticationScheme", "description": "Queue without access control", "recommendation": "Use SAS tokens or Azure AD"},
+
+  // Azure Event Hub Rules
+  {"id": "TS053", "target": "AzureEventHub", "condition": "not element.isEncrypted", "description": "Unencrypted Event Hub", "recommendation": "Enable encryption with Key Vault"},
+  {"id": "TS054", "target": "AzureEventHub", "condition": "not element.implementsAuthenticationScheme", "description": "Event Hub without access control", "recommendation": "Use SAS or Azure AD"},
+
+  // Azure Load Balancer Rules
+  {"id": "TS055", "target": "AzureLoadBalancer", "condition": "not element.isEncrypted", "description": "Load Balancer without TLS", "recommendation": "Enable TLS termination"},
+  {"id": "TS056", "target": "AzureLoadBalancer", "condition": "not element.implementsAuthenticationScheme", "description": "Load Balancer without backend authentication", "recommendation": "Use Azure AD or certificates"},
+
+  // Azure Firewall Rules
+  {"id": "TS057", "target": "AzureFirewall", "condition": "not element.sanitizesInput", "description": "Firewall without threat intelligence rules", "recommendation": "Enable threat intelligence and filtering"},
+
+  // Azure VNet Rules
+  {"id": "TS058", "target": "AzureVNet", "condition": "not element.isEncrypted", "description": "VNet without encrypted traffic", "recommendation": "Use Private Link or TLS"},
+  {"id": "TS059", "target": "AzureVNet", "condition": "element.isPublic", "description": "VNet with public exposure", "recommendation": "Restrict with NSGs"},
+
+  // Generic Firewall Rules
+  {"id": "TS060", "target": "Firewall", "condition": "not element.sanitizesInput", "description": "Firewall without filtering rules", "recommendation": "Configure rules for SQLi, XSS, and DDoS protection"},
+  {"id": "TS061", "target": "Firewall", "condition": "not element.implementsAuthenticationScheme", "description": "Firewall without admin authentication", "recommendation": "Enable strong authentication"},
+
+  // Generic Load Balancer Rules
+  {"id": "TS062", "target": "LoadBalancer", "condition": "not element.isEncrypted", "description": "Load Balancer without TLS", "recommendation": "Enable TLS termination"},
+  {"id": "TS063", "target": "LoadBalancer", "condition": "not element.implementsAuthenticationScheme", "description": "Load Balancer without backend auth", "recommendation": "Use certificates or mutual TLS"},
+
+  // Web App Rules (OWASP Top 10)
+  {"id": "TS064", "target": "WebApp", "condition": "not element.implementsAuthenticationScheme", "description": "A01:2021 - Broken Access Control", "recommendation": "Implement role-based access control (RBAC)"},
+  {"id": "TS065", "target": "WebApp", "condition": "not element.sanitizesInput", "description": "A03:2021 - Injection (e.g., XSS, SQLi)", "recommendation": "Use parameterized queries and input validation"},
+  {"id": "TS066", "target": "WebApp", "condition": "not element.isEncrypted", "description": "A02:2021 - Cryptographic Failures", "recommendation": "Enforce HTTPS with TLS 1.2+"},
+  {"id": "TS067", "target": "WebApp", "condition": "not element.implementsAuthenticationScheme", "description": "A07:2021 - Identification and Authentication Failures", "recommendation": "Use strong passwords and MFA"},
+
+  // API Rules (OWASP Top 10)
+  {"id": "TS068", "target": "API", "condition": "not element.isEncrypted", "description": "A02:2021 - Cryptographic Failures", "recommendation": "Enforce TLS 1.2+ for API endpoints"},
+  {"id": "TS069", "target": "API", "condition": "not element.sanitizesInput", "description": "A04:2021 - Insecure Design (e.g., API input flaws)", "recommendation": "Validate and sanitize all API inputs"},
+  {"id": "TS070", "target": "API", "condition": "not element.implementsAuthenticationScheme", "description": "API lacks authentication", "recommendation": "Use OAuth 2.0 or API keys"},
+
+  // Dataflow Rules
+  {"id": "TS071", "target": "Dataflow", "condition": "element.protocol == 'HTTP' and not element.isEncrypted", "description": "Unencrypted HTTP data flow", "recommendation": "Switch to HTTPS with TLS 1.2+"},
+  {"id": "TS072", "target": "Dataflow", "condition": "element.target.__class__.__name__ in ['AWSEC2', 'AWSS3', 'AWSLambda', 'AWSRDS', 'AWSDynamoDB', 'AWSEKS', 'AWSECS', 'AWSAPIGateway', 'AWSSQS', 'AWSSNS', 'AWSEB', 'AWSCloudFront', 'AWSALB', 'AWSNLB', 'AWSWAF', 'AWSVPC'] and not element.isEncrypted", "description": "Unencrypted data flow to AWS service", "recommendation": "Use TLS or VPC endpoints"},
+  {"id": "TS073", "target": "Dataflow", "condition": "element.target.__class__.__name__ in ['AzureVM', 'AzureBlob', 'AzureFunction', 'AzureSQL', 'AzureCosmosDB', 'AzureAKS', 'AzureContainer', 'AzureAppService', 'AzureQueue', 'AzureEventHub', 'AzureLoadBalancer', 'AzureFirewall', 'AzureVNet'] and not element.isEncrypted", "description": "Unencrypted data flow to Azure service", "recommendation": "Use TLS or Azure Private Link"},
+  {"id": "TS074", "target": "Dataflow", "condition": "element.target.__class__.__name__ in ['WebApp', 'API', 'Firewall', 'LoadBalancer'] and not element.isEncrypted", "description": "Unencrypted data flow to Web App/API/Network component", "recommendation": "Enforce HTTPS or mutual TLS"},
+  {"id": "TS075", "target": "Dataflow", "condition": "element.source.__class__.__name__ in ['WebApp', 'API'] and not element.sanitizesInput", "description": "Unsanitized data flow from Web App/API", "recommendation": "Implement input validation at source"}
+]
