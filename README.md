@@ -60,7 +60,7 @@ wkhtmltopdf --version
 ### 5. (Optional) Host Icons Locally
 The project uses Icons8 URLs for element icons by default. If you encounter 404 errors or prefer to host icons locally:
 
-####5.1 Create a directory for icons:
+#### 5.1 Create a directory for icons:
 ```bash
 mkdir -p static/icons
 ```
@@ -77,13 +77,13 @@ const iconMap = {
     // Update other entries accordingly
 };
 ```
-# Add more icons as needed
+Note: Add more icons as needed
 ### 6. Configure AWS Credentials (Optional)
 If using the "Auto-Generate from AWS" feature:
 ```bash
 aws configure
 ```
-###7. Configure Threat Feed API Keys
+### 7. Configure Threat Feed API Keys
 To use real-time threat feeds, obtain API keys:
 
 AlienVault OTX: Sign up at otx.alienvault.com.
