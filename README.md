@@ -32,12 +32,14 @@ Create and activate a Python virtual environment to manage dependencies:
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
-### 3. Install Python Dependencies
+### 3 installation Steps
+
+#### 3.1 Install Python Dependencies
 Install the required Python packages using pip:
 ```bash
 pip install flask matplotlib networkx boto3 requests
 ```
-### 4. Install wkhtmltopdf
+#### 3.2 Install wkhtmltopdf
 wkhtmltopdf is required to generate PDF reports. Installation depends on your operating system:
 ```bash
 sudo apt update
@@ -57,19 +59,24 @@ sudo apt update
 # Verify installation
 wkhtmltopdf --version
 ```
-### 5. (Optional) Host Icons Locally
+#### Through setup.sh
+Simply run the setup.sh to install all dependencies specified in 3.1 and 3.2 .
+```bash
+./setup.sh
+```
+### 4. (Optional) Host Icons Locally
 The project uses Icons8 URLs for element icons by default. If you encounter 404 errors or prefer to host icons locally:
 
-#### 5.1 Create a directory for icons:
+#### 4.1 Create a directory for icons:
 ```bash
 mkdir -p static/icons
 ```
-#### 5.2 Download icons (example for a few elements):
+#### 4.2 Download icons (example for a few elements):
 ```bash
 wget -O static/icons/amazon-ec2.png https://img.icons8.com/fluency/48/amazon-ec2.png
 wget -O static/icons/amazon-s3.png https://img.icons8.com/fluency/48/amazon-s3.png
 ```
-#### 5.3 Update the iconMap in static/script.js to use local paths:
+#### 4.3 Update the iconMap in static/script.js to use local paths:
 ```bash
 const iconMap = {
     "AWSEC2": "/static/icons/amazon-ec2.png",
@@ -78,22 +85,22 @@ const iconMap = {
 };
 ```
 Note: Add more icons as needed
-### 6. Configure AWS Credentials (Optional)
+### 5. Configure AWS Credentials (Optional)
 If using the "Auto-Generate from AWS" feature:
 ```bash
 aws configure
 ```
-### 7. Configure Threat Feed API Keys
+### 6. Configure Threat Feed API Keys
 To use real-time threat feeds, obtain API keys:
 
 AlienVault OTX: Sign up at otx.alienvault.com.
 VirusTotal: Sign up at virustotal.com. Enter the keys in the "Threat Feed Configuration" section of the UI.
-### 8.Running the Application
-#### 8.1 Start the Flask server:
+### 7.Running the Application
+#### 7.1 Start the Flask server:
 ```bash
 python3 emptm.py
 ```
-#### 8.2 Open your browser and navigate to:
+#### 7.2 Open your browser and navigate to:
 ```bash
 http://localhost:5000
 ```
