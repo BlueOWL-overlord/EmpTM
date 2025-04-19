@@ -1,75 +1,80 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html>
 <head>
     <title>EmpTM</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.7/joint.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.0/backbone-min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.7/joint.min.js"></script>
-    <script>
-        // Check if dependencies are loaded
-        window.onload = function() {
-            if (typeof jQuery === 'undefined') {
-                console.error("jQuery not loaded");
-            } else {
-                console.log("jQuery loaded:", jQuery.fn.jquery);
-            }
-            if (typeof _ === 'undefined') {
-                console.error("Lodash not loaded");
-            } else {
-                console.log("Lodash loaded:", _.VERSION);
-            }
-            if (typeof Backbone === 'undefined') {
-                console.error("Backbone not loaded");
-            } else {
-                console.log("Backbone loaded:", Backbone.VERSION);
-            }
-            if (typeof joint === 'undefined') {
-                console.error("JointJS not loaded. Ensure the CDN is accessible and there are no network issues.");
-            } else {
-                console.log("JointJS loaded:", joint.version);
-                console.log("JointJS dia namespace:", joint.dia ? "Available" : "Not available");
-            }
-        };
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="/static/script.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Show Quick Start overlay on page load
+            $("#quick-start-overlay").show();
+
+            // Close overlay when close button is clicked
+            $("#close-quick-start").click(function() {
+                $("#quick-start-overlay").hide();
+            });
+
+            // Show overlay when button is clicked
+            $("#show-quick-start").click(function() {
+                $("#quick-start-overlay").show();
+            });
+        });
+    </script>
 </head>
 <body>
+    <nav>
+        <button id="show-quick-start">Quick Start</button>
+        <button onclick="window.location.href='/threat-feed';">Threat Feed Config</button>
+    </nav>
     <h1>EmpTM: Draw Your DFD</h1>
     <div class="container">
-        <div id="wizard">
-            <h3>Quick Start</h3>
-            <p>1. Drag elements from the left to the canvas.</p>
-            <p>2. Connect them with links to define flows.</p>
-            <p>3. Click elements/links to set properties.</p>
-            <p>4. Click "Analyze" to generate a report.</p>
-            <button onclick="startWizard()">Guided Setup</button>
-            <button onclick="autoAWS()">Auto-Generate from AWS</button>
-        </div>
-        <div id="threat-feed-config">
-            <h3>Threat Feed Configuration</h3>
-            <label>Feed Source:
-                <select id="feed-source">
-                    <option value="otx">AlienVault OTX</option>
-                    <option value="virustotal">VirusTotal</option>
-                    <option value="mitre">MITRE ATT&CK</option>
-                    <option value="custom">Custom</option>
-                </select>
-            </label><br>
-            <label>API Key: <input type="text" id="feed-api-key" placeholder="Enter API key if required"></label><br>
-            <label id="custom-url-label" style="display:none;">Custom URL: <input type="text" id="feed-custom-url" placeholder="e.g., https://api.example.com"></label><br>
-            <button onclick="saveFeedConfig()">Save Config</button>
-        </div>
         <div id="stencil">
             <h3>Elements</h3>
-            <div id="stencil-canvas"></div>
+            <canvas id="stencil-canvas"></canvas>
         </div>
         <div id="canvas">
-            <div id="canvas-fallback" style="color: red; display: none;">
-                Canvas failed to render. Check console for errors.
-            </div>
+            <canvas id="main-canvas"></canvas>
         </div>
         <div id="properties">
             <h3>Properties</h3>
@@ -83,8 +88,39 @@
                 <label title="Enable if flow uses encryption (e.g., TLS)">Encrypted: <input type="checkbox" id="flowIsEncrypted"></label><br>
                 <label title="Specify the protocol (e.g., HTTP, HTTPS)">Protocol: <input type="text" id="protocol" value="HTTP"></label>
             </div>
+            <div id="port-props" style="display:none; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;">
+                <h4>Port Properties</h4>
+                <label title="Specify the protocol used by the port">Protocol:
+                    <select id="portProtocol">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                        <option value="HTTP">HTTP</option>
+                        <option value="HTTPS">HTTPS</option>
+                        <option value="FTP">FTP</option>
+                        <option value="SSH">SSH</option>
+                        <option value="SMTP">SMTP</option>
+                    </select>
+                </label><br>
+                <label title="Specify the port number">Port Number: <input type="number" id="portNumber" min="0" max="65535"></label><br>
+                <label title="Enable if the port uses encryption">Encrypted: <input type="checkbox" id="portIsEncrypted"></label><br>
+                <label title="Enable if authentication is required">Requires Authentication: <input type="checkbox" id="portRequiresAuthentication"></label>
+            </div>
         </div>
     </div>
     <button onclick="analyze()">Analyze</button>
+
+    <!-- Quick Start Overlay -->
+    <div id="quick-start-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+            <h3>Quick Start</h3>
+            <p>1. Drag elements from the left to the canvas.</p>
+            <p>2. Connect them with links to define flows.</p>
+            <p>3. Click elements/links to set properties.</p>
+            <p>4. Click "Analyze" to generate a report.</p>
+            <button onclick="startWizard()">Guided Setup</button>
+            <button onclick="autoAWS()">Auto-Generate from AWS</button>
+            <button id="close-quick-start" style="margin-top: 10px;">Close</button>
+        </div>
+    </div>
 </body>
 </html>

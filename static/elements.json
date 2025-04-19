@@ -1,0 +1,103 @@
+{
+    "categories": [
+        {
+            "name": "AWS",
+            "elements": [
+                { "type": "AWSEC2", "label": "AWS EC2" },
+                { "type": "AWSS3", "label": "AWS S3" },
+                { "type": "AWSLambda", "label": "AWS Lambda" },
+                { "type": "AWSRDS", "label": "AWS RDS" },
+                { "type": "AWSDynamoDB", "label": "AWS DynamoDB" },
+                { "type": "AWSEKS", "label": "AWS EKS" },
+                { "type": "AWSECS", "label": "AWS ECS" },
+                { "type": "AWSAPIGateway", "label": "AWS API Gateway" },
+                { "type": "AWSSQS", "label": "AWS SQS" },
+                { "type": "AWSSNS", "label": "AWS SNS" },
+                { "type": "AWSEB", "label": "AWS Elastic Beanstalk" },
+                { "type": "AWSCloudFront", "label": "AWS CloudFront" },
+                { "type": "AWSALB", "label": "AWS ALB" },
+                { "type": "AWSNLB", "label": "AWS NLB" },
+                { "type": "AWSWAF", "label": "AWS WAF" },
+                { "type": "AWSVPC", "label": "AWS VPC" }
+            ]
+        },
+        {
+            "name": "Azure",
+            "elements": [
+                { "type": "AzureVM", "label": "Azure VM" },
+                { "type": "AzureBlob", "label": "Azure Blob" },
+                { "type": "AzureFunction", "label": "Azure Function" },
+                { "type": "AzureSQL", "label": "Azure SQL" },
+                { "type": "AzureCosmosDB", "label": "Azure Cosmos DB" },
+                { "type": "AzureAKS", "label": "Azure AKS" },
+                { "type": "AzureContainer", "label": "Azure Container" },
+                { "type": "AzureAppService", "label": "Azure App Service" },
+                { "type": "AzureQueue", "label": "Azure Queue" },
+                { "type": "AzureEventHub", "label": "Azure Event Hub" },
+                { "type": "AzureLoadBalancer", "label": "Azure LB" },
+                { "type": "AzureFirewall", "label": "Azure Firewall" },
+                { "type": "AzureVNet", "label": "Azure VNet" }
+            ]
+        },
+        {
+            "name": "GCP",
+            "elements": [
+                { "type": "GCPComputeEngine", "label": "GCP Compute Engine" },
+                { "type": "GCPCloudStorage", "label": "GCP Cloud Storage" },
+                { "type": "GCPCloudFunctions", "label": "GCP Cloud Functions" },
+                { "type": "GCPBigQuery", "label": "GCP BigQuery" },
+                { "type": "GCPKubernetesEngine", "label": "GCP Kubernetes Engine" }
+            ]
+        },
+        {
+            "name": "Enterprise",
+            "elements": [
+                { "type": "Firewall", "label": "Firewall" },
+                { "type": "LoadBalancer", "label": "Load Balancer" },
+                { "type": "WebApp", "label": "Web App" },
+                { "type": "API", "label": "API" },
+                { "type": "WebServer", "label": "Web Server" },
+                { "type": "AppServer", "label": "Application Server" },
+                { "type": "Client", "label": "Client" },
+                { "type": "MobileApp", "label": "Mobile App" },
+                { "type": "Browser", "label": "Browser" },
+                { "type": "VPN", "label": "VPN" },
+                { "type": "Proxy", "label": "Proxy" }
+            ]
+        },
+        {
+            "name": "IoT and Network",
+            "elements": [
+                { "type": "IoTDevice", "label": "IoT Device" },
+                { "type": "Router", "label": "Router" },
+                { "type": "Switch", "label": "Switch" },
+                { "type": "Gateway", "label": "Gateway" }
+            ]
+        },
+        {
+            "name": "TMT Generic",
+            "elements": [
+                { "type": "ExternalEntity", "label": "External Entity" },
+                { "type": "GenericProcess", "label": "Generic Process" },
+                { "type": "WebApplication", "label": "Web Application" },
+                { "type": "WebService", "label": "Web Service" },
+                { "type": "Database", "label": "Database" },
+                { "type": "FileStorage", "label": "File Storage" },
+                { "type": "Queue", "label": "Queue" },
+                { "type": "CloudService", "label": "Cloud Service" }
+            ]
+        },
+        {
+            "name": "Trust Boundaries",
+            "elements": [
+                { "type": "MachineBoundary", "label": "Machine Boundary" },
+                { "type": "NetworkBoundary", "label": "Network Boundary" },
+                { "type": "UserBoundary", "label": "User Boundary" },
+                { "type": "DMZ", "label": "DMZ" },
+                { "type": "InternalNetwork", "label": "Internal Network" },
+                { "type": "PublicCloud", "label": "Public Cloud" },
+                { "type": "PrivateCloud", "label": "Private Cloud" }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,81 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html>
+<head>
+    <title>EmpTM: Threat Feed Configuration</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $("#feed-source").change(function() {
+                if ($(this).val() === "custom") {
+                    $("#custom-url-label").show();
+                } else {
+                    $("#custom-url-label").hide();
+                }
+            });
+
+            window.saveFeedConfig = function() {
+                alert("Threat feed configuration saved!");
+            };
+        });
+    </script>
+</head>
+<body>
+    <nav>
+        <button onclick="window.location.href='/';">Back to Main Page</button>
+    </nav>
+    <h1>EmpTM: Threat Feed Configuration</h1>
+    <div id="threat-feed-config">
+        <label>Feed Source:
+            <select id="feed-source">
+                <option value="otx">AlienVault OTX</option>
+                <option value="virustotal">VirusTotal</option>
+                <option value="mitre">MITRE ATT&CK</option>
+                <option value="custom">Custom</option>
+            </select>
+        </label><br>
+        <label>API Key: <input type="text" id="feed-api-key" placeholder="Enter API key if required"></label><br>
+        <label id="custom-url-label" style="display:none;">Custom URL: <input type="text" id="feed-custom-url" placeholder="e.g., https://api.example.com"></label><br>
+        <button onclick="saveFeedConfig()">Save Config</button>
+    </div>
+</body>
+</html>

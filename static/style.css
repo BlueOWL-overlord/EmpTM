@@ -10,6 +10,24 @@ h1 {
     margin: 20px;
 }
 
+nav {
+    background-color: #333;
+    padding: 10px;
+}
+
+nav button {
+    margin: 0 5px;
+    padding: 10px;
+    background-color: #555;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+nav button:hover {
+    background-color: #777;
+}
+
 .container {
     display: flex;
     flex-wrap: wrap;
@@ -21,39 +39,58 @@ h1 {
 #stencil {
     width: 150px;
     height: 600px;
-    border: 1px solid #ccc;
+    border: 2px solid #666;
     overflow-y: auto;
-    background-color: #f0f0f0;
+    overflow-x: auto;
+    background-color: #e0e0e0;
     position: relative;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 10px;
+    white-space: nowrap;
+}
+
+#stencil h3 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
 }
 
 #stencil-canvas {
-    width: 150px;
     min-height: 2000px;
-    background-color: #f0f0f0;
-    display: block;
-}
-
-#stencil-canvas svg {
-    display: block;
+    background-color: #e0e0e0;
 }
 
 #canvas {
     border: 1px solid #ccc;
     width: 800px;
     height: 600px;
-    background-color: #f9f9f9;
-    display: block;
+    background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAAAXNSR0IArs4c6QAAADlJREFUWEftz0ENAAAMAsHX/Np0AtcJngG6cQ5RVBTFXg8AAAAAAADwG6bVAAAAAAAAAOwG6bUAAAAAAADAF8Y2iT2lUDoAAAAASUVORK5CYII=') repeat;
     flex-shrink: 0;
     position: relative;
 }
 
-#properties, #wizard, #threat-feed-config {
+#main-canvas {
+    width: 800px;
+    height: 600px;
+    background-color: transparent !important;
+}
+
+#properties, #threat-feed-config {
     margin: 0;
     padding: 10px;
     border: 1px solid #ccc;
     flex: 1;
     min-width: 200px;
+}
+
+#element-props, #flow-props, #port-props {
+    padding: 10px;
+}
+
+#port-props {
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
 }
 
 button {
@@ -67,26 +104,12 @@ label {
     display: block;
 }
 
-select, input[type="text"] {
+select, input[type="text"], input[type="number"] {
     width: 200px;
     padding: 5px;
 }
 
-/* Style for ports */
-.joint-port circle {
-    stroke: #000;
-    stroke-width: 1;
-}
-
-/* Ensure elements are visible */
-.joint-element .body {
-    fill: #e0e0e0;
-    stroke: #000;
-    stroke-width: 1;
-}
-
-/* Ensure labels are visible */
-.joint-element .label {
-    fill: #000;
-    font-size: 12px;
+/* Ensure Fabric.js canvas elements are not overridden */
+canvas {
+    background-color: transparent !important;
 }
