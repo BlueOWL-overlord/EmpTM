@@ -47,6 +47,7 @@ nav button:hover {
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     padding: 10px;
     white-space: nowrap;
+    visibility: visible; /* Ensure the container is visible */
 }
 
 #stencil h3 {
@@ -57,8 +58,10 @@ nav button:hover {
 }
 
 #stencil-canvas {
-    min-height: 2000px;
+    width: 300px !important; /* Explicit width */
+    min-height: 5770px; /* Adjusted to match dynamically calculated height */
     background-color: #e0e0e0;
+    visibility: visible; /* Ensure the canvas is visible */
 }
 
 #canvas {
@@ -84,11 +87,11 @@ nav button:hover {
     min-width: 200px;
 }
 
-#element-props, #flow-props, #port-props {
+#element-props, #flow-props, #port-props, #boundary-props {
     padding: 10px;
 }
 
-#port-props {
+#port-props, #boundary-props {
     background-color: #f9f9f9;
     border: 1px solid #ccc;
 }
@@ -112,4 +115,15 @@ select, input[type="text"], input[type="number"] {
 /* Ensure Fabric.js canvas elements are not overridden */
 canvas {
     background-color: transparent !important;
+    visibility: visible !important; /* Ensure canvas visibility */
+}
+
+/* Sublabel styling */
+#sublabel-label {
+    display: none;
+}
+
+#sublabel, #boundary-label, #boundary-sublabel {
+    width: 200px;
+    padding: 5px;
 }

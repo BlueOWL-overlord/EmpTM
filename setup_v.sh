@@ -20,21 +20,31 @@ else
     echo -e "${GREEN}Python 3 found: $PYTHON_VERSION${NC}"
 fi
 
+# Create a virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+fi
+
+# Activate the virtual environment
+echo "Activating virtual environment..."
+source venv/bin/activate
+
 # Check for pip
-if ! command -v pip3 &> /dev/null; then
-    echo -e "${RED}pip3 is not installed.${NC}"
-    echo "Installing pip3..."
+if ! command -v pip &> /dev/null; then
+    echo -e "${RED}pip is not installed in the virtual environment.${NC}"
+    echo "Installing pip..."
     curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    python3 get-pip.py
+    python get-pip.py
     rm get-pip.py
 else
-    PIP_VERSION=$(pip3 --version | cut -d' ' -f2)
-    echo -e "${GREEN}pip3 found: $PIP_VERSION${NC}"
+    PIP_VERSION=$(pip --version | cut -d' ' -f2)
+    echo -e "${GREEN}pip found: $PIP_VERSION${NC}"
 fi
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
-pip3 install flask matplotlib networkx boto3 requests reportlab
+pip install flask matplotlib networkx boto3 requests reportlab
 echo -e "${GREEN}Python dependencies installed.${NC}"
 
 # Check for wkhtmltopdf
@@ -128,15 +138,17 @@ fi
 # Final instructions
 echo -e "${GREEN}Setup completed successfully!${NC}"
 echo "Next steps:"
-echo "1. Place 'joint.min.js' in the 'static/' directory:"
+echo "1. Activate the virtual environment:"
+echo "   - Run 'source venv/bin/activate'"
+echo "2. Place 'joint.min.js' in the 'static/' directory:"
 echo "   - Download from https://jointjs.com/ or use a CDN (update index.html accordingly)."
-echo "2. Configure AWS credentials for boto3:"
+echo "3. Configure AWS credentials for boto3:"
 echo "   - Run 'aws configure' and provide your AWS Access Key, Secret Key, and region."
-echo "3. Obtain API keys for threat feeds:"
+echo "4. Obtain API keys for threat feeds:"
 echo "   - AlienVault OTX: Sign up at https://otx.alienvault.com/"
 echo "   - VirusTotal: Sign up at https://www.virustotal.com/"
 echo "   - Enter keys in the UI under 'Threat Feed Configuration'."
-echo "4. Run the tool:"
-echo "   - Execute 'python3 emptm.py' and open http://localhost:5000 in your browser."
+echo "5. Run the tool:"
+echo "   - Execute 'python emptm.py' and open http://localhost:5000 in your browser."
 
 exit 0

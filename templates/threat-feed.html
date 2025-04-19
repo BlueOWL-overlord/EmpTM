@@ -40,11 +40,14 @@
         </script><!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>EmpTM: Threat Feed Configuration</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script>
         $(document).ready(function() {
+            // Handle dropdown change to show/hide custom URL field
             $("#feed-source").change(function() {
                 if ($(this).val() === "custom") {
                     $("#custom-url-label").show();
@@ -53,8 +56,41 @@
                 }
             });
 
+            // Load saved configuration if it exists
+            $.getJSON('/load-threat-feed-config', function(data) {
+                if (data && Object.keys(data).length > 0) {
+                    $("#feed-source").val(data.source || "otx");
+                    $("#feed-api-key").val(data.apiKey || "");
+                    if (data.source === "custom") {
+                        $("#feed-custom-url").val(data.customUrl || "");
+                        $("#custom-url-label").show();
+                    } else {
+                        $("#custom-url-label").hide();
+                    }
+                }
+            }).fail(function() {
+                console.error("Failed to load threat feed configuration");
+            });
+
+            // Save configuration when button is clicked
             window.saveFeedConfig = function() {
-                alert("Threat feed configuration saved!");
+                var config = {
+                    source: $("#feed-source").val(),
+                    apiKey: $("#feed-api-key").val(),
+                    customUrl: $("#feed-source").val() === "custom" ? $("#feed-custom-url").val() : null
+                };
+                $.ajax({
+                    url: "/save-threat-feed-config",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(config),
+                    success: function(response) {
+                        alert("Threat feed configuration saved!");
+                    },
+                    error: function(xhr, status, error) {
+                        alert("Failed to save configuration: " + error);
+                    }
+                });
             };
         });
     </script>

@@ -5,6 +5,7 @@ let isCtrlPressed = false;
 let isHoveringPort = false;
 let selectedPort = null;
 let mainCanvas = null; // Will be initialized in $(document).ready
+let selectedElement = null;
 
 $(document).ready(function() {
     console.log("script.js loaded");
@@ -12,7 +13,7 @@ $(document).ready(function() {
     // Initialize Fabric.js canvases
     var stencilCanvas = new fabric.Canvas('stencil-canvas', {
         width: 300,
-        height: 2000,
+        height: 2000, // Will be adjusted dynamically
         backgroundColor: '#e0e0e0',
         selection: false
     });
@@ -24,11 +25,12 @@ $(document).ready(function() {
         defaultCursor: 'default' // Prevent Fabric.js from changing cursor to mover
     });
 
-    // Custom shape class for elements (rectangle with label and ports)
+    // Custom shape class for regular elements (rectangle with label, sublabel, and ports)
     fabric.ElementWithPorts = fabric.util.createClass(fabric.Group, {
         initialize: function(options) {
             options || (options = {});
             this.labelText = options.labelText || 'Element';
+            this.sublabelText = options.sublabelText || ''; // Customizable sublabel
             this.ports = options.ports || [
                 { type: 'in', color: '#ff0000', position: { left: -65, top: 0 } },
                 { type: 'out', color: '#00ff00', position: { left: 65, top: 0 } }
@@ -52,7 +54,18 @@ $(document).ready(function() {
                 originX: 'center',
                 originY: 'center',
                 left: 0,
-                top: 0,
+                top: -5,
+                selectable: false
+            });
+
+            // Sublabel (text, below the label)
+            var sublabel = new fabric.Text(this.sublabelText, {
+                fontSize: 10,
+                fill: '#555',
+                originX: 'center',
+                originY: 'center',
+                left: 0,
+                top: 10,
                 selectable: false
             });
 
@@ -69,7 +82,7 @@ $(document).ready(function() {
             }));
 
             // Group the elements together
-            this.callSuper('initialize', [rect, label, ...portObjects], {
+            this.callSuper('initialize', [rect, label, sublabel, ...portObjects], {
                 left: options.left || 0,
                 top: options.top || 0,
                 hasControls: true,
@@ -90,10 +103,126 @@ $(document).ready(function() {
                         requiresAuthentication: false
                     },
                     additionalPorts: []
-                }
+                },
+                zIndex: 1 // Higher z-index for elements
             });
 
-            console.log(`Element created with label: ${this.labelText}`);
+            console.log(`Element created with label: ${this.labelText}, sublabel: ${this.sublabelText}`);
+        },
+
+        // Method to update sublabel
+        setSublabel: function(newSublabel) {
+            this.sublabelText = newSublabel;
+            this.item(2).set({ text: newSublabel }); // Item 2 is the sublabel text
+            this.canvas.renderAll();
+        }
+    });
+
+    // Custom shape class for boundaries (dashed rectangle with label)
+    fabric.Boundary = fabric.util.createClass(fabric.Group, {
+        initialize: function(options) {
+            options || (options = {});
+            this.labelText = options.labelText || 'Boundary';
+            this.sublabelText = options.sublabelText || ''; // Customizable sublabel
+            this.isInStencil = options.isInStencil || false; // Flag to indicate if in stencil-canvas
+
+            // Dashed rectangle (boundary)
+            var rect = new fabric.Rect({
+                width: options.width || 200,
+                height: options.height || 150,
+                fill: 'transparent',
+                stroke: '#ff0000', // Red dashed line like Microsoft TMT
+                strokeWidth: 2,
+                strokeDashArray: [5, 5],
+                originX: 'center',
+                originY: 'center',
+                evented: true, // Allow events, but we'll handle selection manually
+                hasControls: true,
+                hasBorders: true,
+                selectable: true
+            });
+
+            // Label (top-left corner)
+            var label = new fabric.Text(this.labelText, {
+                fontSize: 12,
+                fill: '#ff0000',
+                originX: 'left',
+                originY: 'top',
+                left: -rect.width / 2,
+                top: -rect.height / 2 - 15,
+                selectable: false,
+                evented: false
+            });
+
+            // Sublabel (below the label)
+            var sublabel = new fabric.Text(this.sublabelText, {
+                fontSize: 10,
+                fill: '#ff5555',
+                originX: 'left',
+                originY: 'top',
+                left: -rect.width / 2,
+                top: -rect.height / 2,
+                selectable: false,
+                evented: false
+            });
+
+            // Group the elements together
+            this.callSuper('initialize', [rect, label, sublabel], {
+                left: options.left || 0,
+                top: options.top || 0,
+                hasControls: true,
+                hasBorders: true,
+                lockMovementX: options.lockMovementX || false,
+                lockMovementY: options.lockMovementY || false,
+                selectable: true,
+                zIndex: 0 // Lower z-index for boundaries
+            });
+
+            // Custom hit detection: Only select the boundary if clicking near the border, unless in stencil
+            this.perPixelTargetFind = true; // Enable per-pixel targeting
+            this.targetFindTolerance = 10; // Increase tolerance for border detection
+
+            console.log(`Boundary created with label: ${this.labelText}, sublabel: ${this.sublabelText}`);
+        },
+
+        // Override containsPoint to customize selection behavior
+        containsPoint: function(point) {
+            var rect = this.item(0); // The dashed rectangle
+            var absolutePoint = fabric.util.transformPoint(point, this.canvas.getZoom() * this.canvas.getRetinaScaling(), false);
+            var x = absolutePoint.x - this.left;
+            var y = absolutePoint.y - this.top;
+            var halfWidth = rect.width / 2;
+            var halfHeight = rect.height / 2;
+
+            // If in stencil-canvas, allow selection anywhere within bounds
+            if (this.isInStencil) {
+                return Math.abs(x) <= halfWidth && Math.abs(y) <= halfHeight;
+            }
+
+            // If in main-canvas, only select near the border
+            var borderThickness = 10; // Thickness of the border area for selection
+            var nearBorder = (
+                (Math.abs(x) >= halfWidth - borderThickness && Math.abs(x) <= halfWidth) ||
+                (Math.abs(y) >= halfHeight - borderThickness && Math.abs(y) <= halfHeight)
+            ) && (
+                Math.abs(x) <= halfWidth && Math.abs(y) <= halfHeight
+            );
+
+            return nearBorder;
+        },
+
+        // Method to update label
+        setLabel: function(newLabel) {
+            this.labelText = newLabel;
+            this.item(1).set({ text: newLabel }); // Item 1 is the label text
+            this.canvas.renderAll();
+        },
+
+        // Method to update sublabel
+        setSublabel: function(newSublabel) {
+            this.sublabelText = newSublabel;
+            this.item(2).set({ text: newSublabel }); // Item 2 is the sublabel text
+            this.canvas.renderAll();
         }
     });
 
@@ -101,51 +230,93 @@ $(document).ready(function() {
     $.getJSON('/static/stencil-elements.json', function(stencilElements) {
         console.log(`Total stencil elements loaded: ${stencilElements.length}`);
 
+        // Dynamically set canvas height based on number of elements
+        const elementHeight = 80; // Height per element (including spacing)
+        const canvasHeight = stencilElements.length * elementHeight + 30; // Add buffer
+        stencilCanvas.setHeight(canvasHeight);
+        console.log(`Set stencil canvas height to ${canvasHeight}px`);
+
         // Add elements to the stencil with increased spacing
         stencilElements.forEach((item, index) => {
-            console.log(`Adding ${item.label} at position y=${10 + (index * 80)}`);
-            var element = new fabric.ElementWithPorts({
-                left: 75,
-                top: 30 + (index * 80),
-                labelText: item.label,
-                lockMovementX: true,
-                lockMovementY: true,
-                data: { 
-                    type: item.type, 
-                    isEncrypted: false, 
-                    implementsAuthenticationScheme: false, 
-                    sanitizesInput: false,
-                    isPublic: item.type === "AWSS3" || item.type === "AzureBlob" || item.type === "AWSVPC" || item.type === "AzureVNet" ? false : undefined,
-                    inPort: {
-                        protocol: item.type === "API" || item.type === "WebApp" ? "HTTPS" : "TCP",
-                        portNumber: item.type === "API" || item.type === "WebApp" ? 443 : 0,
-                        isEncrypted: item.type === "API" || item.type === "WebApp",
-                        requiresAuthentication: false
-                    },
-                    outPort: {
-                        protocol: item.type === "API" || item.type === "WebApp" ? "HTTPS" : "TCP",
-                        portNumber: item.type === "API" || item.type === "WebApp" ? 443 : 0,
-                        isEncrypted: item.type === "API" || item.type === "WebApp",
-                        requiresAuthentication: false
-                    },
-                    additionalPorts: []
+            console.log(`Adding ${item.label} at position y=${10 + (index * elementHeight)}`);
+            try {
+                if (item.isBoundary) {
+                    // Create a boundary
+                    var boundary = new fabric.Boundary({
+                        left: 75,
+                        top: 30 + (index * elementHeight),
+                        width: 130,
+                        height: 40,
+                        labelText: item.label,
+                        sublabelText: `Custom ${item.label}`, // Default sublabel
+                        lockMovementX: true,
+                        lockMovementY: true,
+                        isInStencil: true // Indicate this boundary is in the stencil-canvas
+                    });
+                    stencilCanvas.add(boundary);
+                    console.log(`Added boundary: ${item.label}`);
+                } else {
+                    // Create a regular element
+                    var element = new fabric.ElementWithPorts({
+                        left: 75,
+                        top: 30 + (index * elementHeight),
+                        labelText: item.label,
+                        sublabelText: `Custom ${item.label}`, // Default sublabel
+                        lockMovementX: true,
+                        lockMovementY: true,
+                        data: { 
+                            type: item.type, 
+                            isEncrypted: false, 
+                            implementsAuthenticationScheme: false, 
+                            sanitizesInput: false,
+                            isPublic: item.type === "AWSS3" || item.type === "AzureBlob" || item.type === "AWSVPC" || item.type === "AzureVNet" ? false : undefined,
+                            inPort: {
+                                protocol: item.type === "API" || item.type === "WebApp" ? "HTTPS" : "TCP",
+                                portNumber: item.type === "API" || item.type === "WebApp" ? 443 : 0,
+                                isEncrypted: item.type === "API" || item.type === "WebApp",
+                                requiresAuthentication: false
+                            },
+                            outPort: {
+                                protocol: item.type === "API" || item.type === "WebApp" ? "HTTPS" : "TCP",
+                                portNumber: item.type === "API" || item.type === "WebApp" ? 443 : 0,
+                                isEncrypted: item.type === "API" || item.type === "WebApp",
+                                requiresAuthentication: false
+                            },
+                            additionalPorts: []
+                        }
+                    });
+                    stencilCanvas.add(element);
+                    console.log(`Added element: ${item.label}`);
                 }
-            });
-            stencilCanvas.add(element);
+            } catch (error) {
+                console.error(`Error adding ${item.label}:`, error);
+            }
         });
         console.log(`Total elements added to stencilCanvas: ${stencilCanvas.getObjects().length}`);
 
-        // Add hover effect for stencil elements
+        // Force re-render of the canvas
+        stencilCanvas.renderAll();
+        console.log("Stencil canvas rendered");
+
+        // Add hover effect for stencil elements and boundaries
         stencilCanvas.on('mouse:over', function(options) {
-            if (options.target && options.target instanceof fabric.ElementWithPorts) {
-                options.target.item(0).set({ stroke: '#007bff', strokeWidth: 2 });
+            if (options.target) {
+                if (options.target instanceof fabric.ElementWithPorts) {
+                    options.target.item(0).set({ stroke: '#007bff', strokeWidth: 2 });
+                } else if (options.target instanceof fabric.Boundary) {
+                    options.target.item(0).set({ stroke: '#ff5555', strokeWidth: 3 });
+                }
                 stencilCanvas.renderAll();
             }
         });
 
         stencilCanvas.on('mouse:out', function(options) {
-            if (options.target && options.target instanceof fabric.ElementWithPorts) {
-                options.target.item(0).set({ stroke: '#000', strokeWidth: 1 });
+            if (options.target) {
+                if (options.target instanceof fabric.ElementWithPorts) {
+                    options.target.item(0).set({ stroke: '#000', strokeWidth: 1 });
+                } else if (options.target instanceof fabric.Boundary) {
+                    options.target.item(0).set({ stroke: '#ff0000', strokeWidth: 2 });
+                }
                 stencilCanvas.renderAll();
             }
         });
@@ -153,30 +324,50 @@ $(document).ready(function() {
         // Enable drag-and-drop from stencil to main canvas
         stencilCanvas.on('mouse:down', function(options) {
             if (options.target) {
-                var stencilElement = options.target;
-                var clone = new fabric.ElementWithPorts({
-                    left: 50,
-                    top: 50,
-                    labelText: stencilElement.labelText,
-                    ports: stencilElement.ports,
-                    data: stencilElement.data,
-                    lockMovementX: false,
-                    lockMovementY: false
-                });
-                mainCanvas.add(clone);
-                mainCanvas.setActiveObject(clone);
+                if (options.target instanceof fabric.ElementWithPorts) {
+                    var stencilElement = options.target;
+                    var clone = new fabric.ElementWithPorts({
+                        left: 50,
+                        top: 50,
+                        labelText: stencilElement.labelText,
+                        sublabelText: stencilElement.sublabelText,
+                        ports: stencilElement.ports,
+                        data: stencilElement.data,
+                        lockMovementX: false,
+                        lockMovementY: false
+                    });
+                    mainCanvas.add(clone);
+                    mainCanvas.setActiveObject(clone);
+                } else if (options.target instanceof fabric.Boundary) {
+                    var stencilBoundary = options.target;
+                    var clone = new fabric.Boundary({
+                        left: 50,
+                        top: 50,
+                        width: 200,
+                        height: 150,
+                        labelText: stencilBoundary.labelText,
+                        sublabelText: stencilBoundary.sublabelText,
+                        lockMovementX: false,
+                        lockMovementY: false,
+                        isInStencil: false // This boundary is now on the main canvas
+                    });
+                    mainCanvas.add(clone);
+                    mainCanvas.setActiveObject(clone);
+                    console.log(`Dragged boundary ${stencilBoundary.labelText} to main canvas`);
+                }
             }
         });
-    }).fail(function() {
-        console.error("Failed to load stencil-elements.json");
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error("Failed to load stencil-elements.json:", textStatus, errorThrown);
+        console.error("jqXHR:", jqXHR);
     });
 
-    // Implement right-click to add ports
+    // Implement right-click to add ports (only for elements, not boundaries)
     mainCanvas.on('mouse:down', function(options) {
         if (options.button === 3) { // Right-click
             options.e.preventDefault(); // Prevent default context menu
             var target = options.target;
-            if (target && target instanceof fabric.ElementWithPorts) {
+            if (target && target instanceof fabric.ElementWithPorts) { // Only for elements
                 // Add a new port
                 var newPortPosition = { left: 65, top: (target.ports.length - 1) * 15 };
                 var newPortColor = '#0000ff'; // Blue for additional ports
@@ -218,7 +409,7 @@ $(document).ready(function() {
                 // Check ports for connection creation or selection
                 var ports = target.ports;
                 var portPositions = ports.map((port, index) => ({
-                    position: getAbsolutePortPosition(target, target.item(index + 2)),
+                    position: getAbsolutePortPosition(target, target.item(index + 3)), // Adjust index due to sublabel
                     type: port.type,
                     index: index
                 }));
@@ -281,6 +472,7 @@ $(document).ready(function() {
                         $("#element-props").hide();
                         $("#flow-props").hide();
                         $("#port-props").show();
+                        $("#boundary-props").hide();
                         var portData = closestPort.type === 'in' ? target.data.inPort : (closestPort.type === 'out' ? target.data.outPort : target.data.additionalPorts[closestPort.index - 2]);
                         $("#portProtocol").val(portData.protocol).change(function() {
                             portData.protocol = this.value;
@@ -311,6 +503,7 @@ $(document).ready(function() {
                 $("#element-props").hide();
                 $("#flow-props").show();
                 $("#port-props").hide();
+                $("#boundary-props").hide();
                 var link = target;
                 var linkData = link.data;
                 $("#flowIsEncrypted").prop("checked", linkData.isEncrypted).change(function() {
@@ -335,13 +528,21 @@ $(document).ready(function() {
             return;
         }
 
-        // Handle element selection and properties (without Ctrl)
-        if (options.target && options.target instanceof fabric.ElementWithPorts) {
-            selectedElement = options.target;
+        // Handle element or boundary selection and properties (without Ctrl)
+        // Prioritize elements over boundaries by checking all targets at the click position
+        var targets = mainCanvas.getObjects().filter(obj => {
+            return obj.containsPoint(pointer) && (obj instanceof fabric.ElementWithPorts || obj instanceof fabric.Boundary);
+        }).sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0)); // Sort by zIndex, highest first
+
+        var target = targets[0]; // Get the topmost object (elements have higher zIndex)
+
+        if (target && target instanceof fabric.ElementWithPorts) {
+            selectedElement = target;
             selectedPort = null;
             $("#element-props").show();
             $("#flow-props").hide();
             $("#port-props").hide();
+            $("#boundary-props").hide();
             var elementData = selectedElement.data;
             $("#isEncrypted").prop("checked", elementData.isEncrypted).change(function() {
                 elementData.isEncrypted = this.checked;
@@ -359,18 +560,46 @@ $(document).ready(function() {
             } else {
                 $("#public-label").hide();
             }
+            // Add sublabel input field
+            $("#sublabel-label").show().find("#sublabel").val(selectedElement.sublabelText).off('change').change(function() {
+                selectedElement.setSublabel(this.value);
+                console.log(`Updated sublabel for ${selectedElement.labelText} to ${this.value}`);
+            });
             console.log(`Selected element ${selectedElement.labelText}`);
+            mainCanvas.setActiveObject(selectedElement);
+            return;
+        }
+
+        if (target && target instanceof fabric.Boundary) {
+            selectedElement = target;
+            selectedPort = null;
+            $("#element-props").hide();
+            $("#flow-props").hide();
+            $("#port-props").hide();
+            $("#boundary-props").show();
+            // Add boundary label and sublabel input fields
+            $("#boundary-label").val(selectedElement.labelText).off('change').change(function() {
+                selectedElement.setLabel(this.value);
+                console.log(`Updated label for boundary to ${this.value}`);
+            });
+            $("#boundary-sublabel").val(selectedElement.sublabelText).off('change').change(function() {
+                selectedElement.setSublabel(this.value);
+                console.log(`Updated sublabel for boundary to ${this.value}`);
+            });
+            console.log(`Selected boundary ${selectedElement.labelText}`);
+            mainCanvas.setActiveObject(selectedElement);
             return;
         }
 
         // Clear selection if clicking on the canvas (not an element, port, or connection)
-        if (!options.target) {
+        if (!target) {
             selectedElement = null;
             selectedPort = null;
             mainCanvas.discardActiveObject(); // Unselect the active object in Fabric.js
             $("#element-props").hide();
             $("#flow-props").hide();
             $("#port-props").hide();
+            $("#boundary-props").hide();
             mainCanvas.renderAll();
             console.log("Cleared selection by clicking on blank space");
         }
@@ -384,7 +613,7 @@ $(document).ready(function() {
         if (target && target instanceof fabric.ElementWithPorts) {
             var ports = target.ports;
             var portPositions = ports.map((port, index) => ({
-                position: getAbsolutePortPosition(target, target.item(index + 2)),
+                position: getAbsolutePortPosition(target, target.item(index + 3)), // Adjust index due to sublabel
                 type: port.type,
                 index: index
             }));
@@ -459,8 +688,8 @@ function updateConnectedArrows(movedElement) {
             var source = obj.data.source;
             var target = obj.data.target;
             if (source === movedElement || target === movedElement) {
-                var sourcePort = source.item(source.ports.findIndex(p => p === obj.data.sourcePort) + 2);
-                var targetPort = target.item(target.ports.findIndex(p => p === obj.data.targetPort) + 2);
+                var sourcePort = source.item(source.ports.findIndex(p => p === obj.data.sourcePort) + 3); // Adjust index due to sublabel
+                var targetPort = target.item(target.ports.findIndex(p => p === obj.data.targetPort) + 3); // Adjust index due to sublabel
                 var sourcePos = getAbsolutePortPosition(source, sourcePort);
                 var targetPos = getAbsolutePortPosition(target, targetPort);
                 obj.set('path', [
@@ -476,8 +705,7 @@ function updateConnectedArrows(movedElement) {
     mainCanvas.renderAll();
 }
 
-// Add delete functionality for elements, connections, and ports on the main canvas
-let selectedElement = null;
+// Add delete functionality for elements, boundaries, and connections on the main canvas
 $(document).on('keydown', function(event) {
     if ((event.keyCode === 46 || event.key === 'Delete') && selectedElement) {
         if (selectedElement instanceof fabric.ElementWithPorts) {
@@ -489,6 +717,9 @@ $(document).on('keydown', function(event) {
                 }
             });
             mainCanvas.remove(selectedElement);
+        } else if (selectedElement instanceof fabric.Boundary) {
+            console.log("Deleting boundary:", selectedElement.labelText);
+            mainCanvas.remove(selectedElement);
         } else if (selectedElement instanceof fabric.Path) {
             console.log("Deleting connection between", selectedElement.data.source.labelText, "and", selectedElement.data.target.labelText);
             mainCanvas.remove(selectedElement);
@@ -498,6 +729,7 @@ $(document).on('keydown', function(event) {
         $("#element-props").hide();
         $("#flow-props").hide();
         $("#port-props").hide();
+        $("#boundary-props").hide();
         mainCanvas.renderAll();
     }
 });
@@ -539,8 +771,12 @@ function analyze() {
         contentType: "application/json",
         data: JSON.stringify({ name: "Custom System", elements: elements, flows: flows, feedConfig: feedConfig }),
         success: function(response) {
-            window.location.href = `/download/pdf`;
-            alert("Download PDF or CSV from the links: " + response.report + " | " + response.csv);
+            // Use the report filename from the response
+            if (response.report) {
+                window.location.href = `/download/${response.report}`;
+            } else {
+                alert("No report generated");
+            }
         },
         error: function(xhr, status, error) {
             alert("Analysis failed: " + error);
@@ -550,37 +786,33 @@ function analyze() {
 
 function autoAWS() {
     $.get("/auto_aws", function(response) {
-        window.location.href = `/download/pdf`;
+        window.location.href = `/download/${response.report}`;
         alert("AWS auto-generated model created. Download PDF or CSV: " + response.report + " | " + response.csv);
     });
 }
 
 function startWizard() {
-    alert("Wizard Step 1: Add a Web App");
-    var webApp = new fabric.ElementWithPorts({
-        left: 300,
-        top: 100,
-        labelText: "Web App",
-        data: { 
-            type: "WebApp", 
-            isEncrypted: false, 
-            implementsAuthenticationScheme: false, 
-            sanitizesInput: false,
-            inPort: { protocol: "HTTPS", portNumber: 443, isEncrypted: true, requiresAuthentication: false },
-            outPort: { protocol: "HTTPS", portNumber: 443, isEncrypted: true, requiresAuthentication: false },
-            additionalPorts: []
-        }
+    alert("Wizard Step 1: Add a Trust Boundary");
+    var boundary = new fabric.Boundary({
+        left: 200,
+        top: 50,
+        width: 400,
+        height: 300,
+        labelText: "Trust Boundary",
+        sublabelText: "Corporate Network",
+        isInStencil: false // This boundary is on the main canvas
     });
-    mainCanvas.add(webApp);
+    mainCanvas.add(boundary);
 
     setTimeout(() => {
-        alert("Wizard Step 2: Add an API and connect it");
-        var api = new fabric.ElementWithPorts({
-            left: 500,
+        alert("Wizard Step 2: Add a Web App inside the boundary");
+        var webApp = new fabric.ElementWithPorts({
+            left: 300,
             top: 100,
-            labelText: "API",
+            labelText: "Web App",
+            sublabelText: "Custom Web App",
             data: { 
-                type: "API", 
+                type: "WebApp", 
                 isEncrypted: false, 
                 implementsAuthenticationScheme: false, 
                 sanitizesInput: false,
@@ -589,29 +821,49 @@ function startWizard() {
                 additionalPorts: []
             }
         });
-        mainCanvas.add(api);
+        mainCanvas.add(webApp);
 
-        // Draw an arrow from Web App's output to API's input
-        var webAppOutPort = webApp.ports.find(p => p.type === 'out');
-        var apiInPort = api.ports.find(p => p.type === 'in');
-        var webAppOutPortPos = getAbsolutePortPosition(webApp, webApp.item(webApp.ports.findIndex(p => p.type === 'out') + 2));
-        var apiInPortPos = getAbsolutePortPosition(api, api.item(api.ports.findIndex(p => p.type === 'in') + 2));
-        var arrow = new fabric.Path(`M ${webAppOutPortPos.x} ${webAppOutPortPos.y} L ${apiInPortPos.x} ${apiInPortPos.y} M ${apiInPortPos.x - 10} ${apiInPortPos.y - 5} L ${apiInPortPos.x} ${apiInPortPos.y} L ${apiInPortPos.x - 10} ${apiInPortPos.y + 5}`, {
-            stroke: '#333',
-            strokeWidth: 2,
-            fill: '',
-            selectable: true,
-            data: {
-                source: webApp,
-                target: api,
-                sourcePort: webAppOutPort,
-                targetPort: apiInPort,
-                isEncrypted: true,
-                protocol: "HTTPS"
-            }
-        });
-        mainCanvas.add(arrow);
-        alert("Wizard Complete! Modify properties and click Analyze.");
+        setTimeout(() => {
+            alert("Wizard Step 3: Add an API and connect it");
+            var api = new fabric.ElementWithPorts({
+                left: 500,
+                top: 100,
+                labelText: "API",
+                sublabelText: "Custom API",
+                data: { 
+                    type: "API", 
+                    isEncrypted: false, 
+                    implementsAuthenticationScheme: false, 
+                    sanitizesInput: false,
+                    inPort: { protocol: "HTTPS", portNumber: 443, isEncrypted: true, requiresAuthentication: false },
+                    outPort: { protocol: "HTTPS", portNumber: 443, isEncrypted: true, requiresAuthentication: false },
+                    additionalPorts: []
+                }
+            });
+            mainCanvas.add(api);
+
+            // Draw an arrow from Web App's output to API's input
+            var webAppOutPort = webApp.ports.find(p => p.type === 'out');
+            var apiInPort = api.ports.find(p => p.type === 'in');
+            var webAppOutPortPos = getAbsolutePortPosition(webApp, webApp.item(webApp.ports.findIndex(p => p.type === 'out') + 3));
+            var apiInPortPos = getAbsolutePortPosition(api, api.item(api.ports.findIndex(p => p.type === 'in') + 3));
+            var arrow = new fabric.Path(`M ${webAppOutPortPos.x} ${webAppOutPortPos.y} L ${apiInPortPos.x} ${apiInPortPos.y} M ${apiInPortPos.x - 10} ${apiInPortPos.y - 5} L ${apiInPortPos.x} ${apiInPortPos.y} L ${apiInPortPos.x - 10} ${apiInPortPos.y + 5}`, {
+                stroke: '#333',
+                strokeWidth: 2,
+                fill: '',
+                selectable: true,
+                data: {
+                    source: webApp,
+                    target: api,
+                    sourcePort: webAppOutPort,
+                    targetPort: apiInPort,
+                    isEncrypted: true,
+                    protocol: "HTTPS"
+                }
+            });
+            mainCanvas.add(arrow);
+            alert("Wizard Complete! Modify properties and click Analyze.");
+        }, 1000);
     }, 1000);
 }
 
