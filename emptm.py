@@ -3,6 +3,8 @@ import os
 import json
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
 from datetime import datetime
 
 app = Flask(__name__)
@@ -16,6 +18,7 @@ def index():
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '-1'
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
     return response
 
 @app.route('/threat-feed')
@@ -24,6 +27,7 @@ def threat_feed():
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '-1'
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
     return response
 
 @app.route('/save-threat-feed-config', methods=['POST'])
@@ -93,6 +97,91 @@ def analyze():
             c.showPage()
             c.setFont("Helvetica", 12)
             y_position = 750
+
+    # Threats Section with Severity Calculation and Summary Table
+    c.drawString(100, y_position, "Threats Summary:")
+    y_position -= 20
+
+    # Placeholder for threat feed integration
+    threats = []
+
+    # Basic threat analysis based on model properties with severity calculation
+    for flow in flows:
+        if not flow['isEncrypted']:
+            base_severity = 3  # Low
+            severity = base_severity
+            severity += 2  # Unencrypted flow
+            if flow['protocol'].upper() != "HTTPS":
+                severity += 1  # Insecure protocol
+            severity_label = "Low" if severity <= 4 else ("Medium" if severity <= 6 else "High")
+            threats.append({
+                "component": f"{flow['from']} -> {flow['to']}",
+                "reason": f"Unencrypted flow using {flow['protocol']}",
+                "threat": "Risk of data interception (MITRE ATT&CK: T1040 Network Sniffing)",
+                "severity": severity_label
+            })
+
+    for element in elements:
+        if element.get('isPublic', False):
+            base_severity = 3  # Low
+            severity = base_severity
+            severity += 2  # Public exposure
+            if not element['isEncrypted']:
+                severity += 2  # Unencrypted element
+            severity_label = "Low" if severity <= 4 else ("Medium" if severity <= 6 else "High")
+            threats.append({
+                "component": element['label'],
+                "reason": "Publicly exposed element",
+                "threat": "Potential unauthorized access (MITRE ATT&CK: T1190 Exploit Public-Facing Application)",
+                "severity": severity_label
+            })
+        if not element['isEncrypted']:
+            base_severity = 3  # Low
+            severity = base_severity
+            severity += 2  # Unencrypted element
+            severity_label = "Low" if severity <= 4 else ("Medium" if severity <= 6 else "High")
+            threats.append({
+                "component": element['label'],
+                "reason": "Unencrypted element",
+                "threat": "Risk of data exposure (MITRE ATT&CK: T1530 Data from Cloud Storage)",
+                "severity": severity_label
+            })
+
+    # Create a summary table
+    if threats:
+        table_data = [["Component", "Reason", "Threat", "Severity"]]
+        for threat in threats:
+            table_data.append([
+                threat["component"],
+                threat["reason"],
+                threat["threat"],
+                threat["severity"]
+            ])
+
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+
+        # Calculate table width and position
+        table_width = 400
+        table.wrapOn(c, table_width, 400)
+        table.drawOn(c, 100, y_position - len(threats) * 30)
+
+        y_position -= (len(threats) + 2) * 30
+    else:
+        c.drawString(120, y_position, "No threats identified.")
+        y_position -= 20
 
     c.save()
 

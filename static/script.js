@@ -118,8 +118,8 @@ $(document).ready(function() {
         }
     });
 
-    // Custom shape class for boundaries (dashed rectangle with label)
-    fabric.Boundary = fabric.util.createClass(fabric.Group, {
+    // Custom shape class for boundaries (single dashed rectangle with text overlays)
+    fabric.Boundary = fabric.util.createClass(fabric.Rect, {
         initialize: function(options) {
             options || (options = {});
             this.labelText = options.labelText || 'Boundary';
@@ -127,72 +127,55 @@ $(document).ready(function() {
             this.isInStencil = options.isInStencil || false; // Flag to indicate if in stencil-canvas
 
             // Dashed rectangle (boundary)
-            var rect = new fabric.Rect({
+            this.callSuper('initialize', {
+                left: options.left || 0,
+                top: options.top || 0,
                 width: options.width || 200,
                 height: options.height || 150,
-                fill: 'transparent',
+                fill: this.isInStencil ? 'rgba(255,0,0,0.01)' : 'rgba(0,0,0,0)', // Low opacity fill for stencil to ensure click detection
                 stroke: '#ff0000', // Red dashed line like Microsoft TMT
                 strokeWidth: 2,
                 strokeDashArray: [5, 5],
-                originX: 'center',
-                originY: 'center',
-                evented: true, // Allow events, but we'll handle selection manually
+                evented: true, // Allow events
                 hasControls: true,
                 hasBorders: true,
-                selectable: true
-            });
-
-            // Label (top-left corner)
-            var label = new fabric.Text(this.labelText, {
-                fontSize: 12,
-                fill: '#ff0000',
-                originX: 'left',
-                originY: 'top',
-                left: -rect.width / 2,
-                top: -rect.height / 2 - 15,
-                selectable: false,
-                evented: false
-            });
-
-            // Sublabel (below the label)
-            var sublabel = new fabric.Text(this.sublabelText, {
-                fontSize: 10,
-                fill: '#ff5555',
-                originX: 'left',
-                originY: 'top',
-                left: -rect.width / 2,
-                top: -rect.height / 2,
-                selectable: false,
-                evented: false
-            });
-
-            // Group the elements together
-            this.callSuper('initialize', [rect, label, sublabel], {
-                left: options.left || 0,
-                top: options.top || 0,
-                hasControls: true,
-                hasBorders: true,
+                selectable: true,
                 lockMovementX: options.lockMovementX || false,
                 lockMovementY: options.lockMovementY || false,
-                selectable: true,
                 zIndex: 0 // Lower z-index for boundaries
             });
-
-            // Custom hit detection: Only select the boundary if clicking near the border, unless in stencil
-            this.perPixelTargetFind = true; // Enable per-pixel targeting
-            this.targetFindTolerance = 10; // Increase tolerance for border detection
 
             console.log(`Boundary created with label: ${this.labelText}, sublabel: ${this.sublabelText}`);
         },
 
+        // Custom rendering to add label and sublabel
+        _render: function(ctx) {
+            this.callSuper('_render', ctx);
+
+            // Draw label (top-left corner)
+            ctx.font = '12px Helvetica';
+            ctx.fillStyle = '#ff0000';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(this.labelText, -this.width / 2, -this.height / 2 - 15);
+
+            // Draw sublabel (below the label)
+            ctx.font = '10px Helvetica';
+            ctx.fillStyle = '#ff5555';
+            ctx.fillText(this.sublabelText, -this.width / 2, -this.height / 2);
+        },
+
         // Override containsPoint to customize selection behavior
         containsPoint: function(point) {
-            var rect = this.item(0); // The dashed rectangle
-            var absolutePoint = fabric.util.transformPoint(point, this.canvas.getZoom() * this.canvas.getRetinaScaling(), false);
-            var x = absolutePoint.x - this.left;
-            var y = absolutePoint.y - this.top;
-            var halfWidth = rect.width / 2;
-            var halfHeight = rect.height / 2;
+            if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+                console.error(`Invalid point in containsPoint for ${this.labelText}:`, point);
+                return false;
+            }
+
+            var x = point.x - this.left;
+            var y = point.y - this.top;
+            var halfWidth = this.width / 2;
+            var halfHeight = this.height / 2;
 
             // If in stencil-canvas, allow selection anywhere within bounds
             if (this.isInStencil) {
@@ -214,14 +197,12 @@ $(document).ready(function() {
         // Method to update label
         setLabel: function(newLabel) {
             this.labelText = newLabel;
-            this.item(1).set({ text: newLabel }); // Item 1 is the label text
             this.canvas.renderAll();
         },
 
         // Method to update sublabel
         setSublabel: function(newSublabel) {
             this.sublabelText = newSublabel;
-            this.item(2).set({ text: newSublabel }); // Item 2 is the sublabel text
             this.canvas.renderAll();
         }
     });
@@ -304,7 +285,7 @@ $(document).ready(function() {
                 if (options.target instanceof fabric.ElementWithPorts) {
                     options.target.item(0).set({ stroke: '#007bff', strokeWidth: 2 });
                 } else if (options.target instanceof fabric.Boundary) {
-                    options.target.item(0).set({ stroke: '#ff5555', strokeWidth: 3 });
+                    options.target.set({ stroke: '#ff5555', strokeWidth: 3 });
                 }
                 stencilCanvas.renderAll();
             }
@@ -315,7 +296,7 @@ $(document).ready(function() {
                 if (options.target instanceof fabric.ElementWithPorts) {
                     options.target.item(0).set({ stroke: '#000', strokeWidth: 1 });
                 } else if (options.target instanceof fabric.Boundary) {
-                    options.target.item(0).set({ stroke: '#ff0000', strokeWidth: 2 });
+                    options.target.set({ stroke: '#ff0000', strokeWidth: 2 });
                 }
                 stencilCanvas.renderAll();
             }
