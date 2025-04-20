@@ -6,9 +6,19 @@ let isHoveringPort = false;
 let selectedPort = null;
 let mainCanvas = null; // Will be initialized in $(document).ready
 let selectedElement = null;
+let projectData = null; // Store project data for saving/loading
+let aiSettings = { provider: 'openai', apiKey: '' }; // Store AI provider and API key
 
 $(document).ready(function() {
     console.log("script.js loaded");
+
+    // Load AI settings from localStorage if available
+    const savedAiSettings = localStorage.getItem('aiSettings');
+    if (savedAiSettings) {
+        aiSettings = JSON.parse(savedAiSettings);
+        $('#ai-provider').val(aiSettings.provider);
+        $('#ai-api-key').val(aiSettings.apiKey);
+    }
 
     // Initialize Fabric.js canvases
     var stencilCanvas = new fabric.Canvas('stencil-canvas', {
@@ -69,17 +79,23 @@ $(document).ready(function() {
                 selectable: false
             });
 
-            // Create ports dynamically
-            var portObjects = this.ports.map((port, index) => new fabric.Circle({
-                radius: 6,
-                fill: port.color,
-                left: port.position.left,
-                top: port.position.top,
-                originX: 'center',
-                originY: 'center',
-                selectable: false,
-                data: { portIndex: index }
-            }));
+            // Create ports dynamically, ensuring each port has a corresponding fabric.Circle
+            var portObjects = this.ports.map((port, index) => {
+                if (!port.position || typeof port.position.left !== 'number' || typeof port.position.top !== 'number') {
+                    console.warn(`Invalid port position for port ${index} in element ${this.labelText}, using default`);
+                    port.position = { left: port.type === 'in' ? -65 : 65, top: 0 };
+                }
+                return new fabric.Circle({
+                    radius: 6,
+                    fill: port.color || (port.type === 'in' ? '#ff0000' : port.type === 'out' ? '#00ff00' : '#0000ff'),
+                    left: port.position.left,
+                    top: port.position.top,
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    data: { portIndex: index }
+                });
+            });
 
             // Group the elements together
             this.callSuper('initialize', [rect, label, sublabel, ...portObjects], {
@@ -107,14 +123,37 @@ $(document).ready(function() {
                 zIndex: 1 // Higher z-index for elements
             });
 
-            console.log(`Element created with label: ${this.labelText}, sublabel: ${this.sublabelText}`);
+            console.log(`Element created with label: ${this.labelText}, sublabel: ${this.sublabelText}, ports: ${this.ports.length}`);
+        },
+
+        // Method to update label
+        setLabel: function(newLabel) {
+            this.labelText = newLabel || 'Element'; // Fallback to 'Element' if undefined
+            this.item(1).set({ text: this.labelText }); // Item 1 is the label text
+            if (this.canvas) this.canvas.renderAll();
         },
 
         // Method to update sublabel
         setSublabel: function(newSublabel) {
-            this.sublabelText = newSublabel;
-            this.item(2).set({ text: newSublabel }); // Item 2 is the sublabel text
-            this.canvas.renderAll();
+            this.sublabelText = newSublabel || ''; // Fallback to empty string if undefined
+            this.item(2).set({ text: this.sublabelText }); // Item 2 is the sublabel text
+            if (this.canvas) this.canvas.renderAll();
+        },
+
+        // Method to convert to JSON for saving
+        toJSON: function() {
+            return {
+                type: 'ElementWithPorts',
+                left: this.left,
+                top: this.top,
+                labelText: this.labelText,
+                sublabelText: this.sublabelText,
+                ports: this.ports,
+                data: this.data,
+                lockMovementX: this.lockMovementX,
+                lockMovementY: this.lockMovementY,
+                zIndex: this.zIndex
+            };
         }
     });
 
@@ -157,12 +196,12 @@ $(document).ready(function() {
             ctx.fillStyle = '#ff0000';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.fillText(this.labelText, -this.width / 2, -this.height / 2 - 15);
+            ctx.fillText(this.labelText || 'Boundary', -this.width / 2, -this.height / 2 - 15);
 
             // Draw sublabel (below the label)
             ctx.font = '10px Helvetica';
             ctx.fillStyle = '#ff5555';
-            ctx.fillText(this.sublabelText, -this.width / 2, -this.height / 2);
+            ctx.fillText(this.sublabelText || '', -this.width / 2, -this.height / 2);
         },
 
         // Override containsPoint to customize selection behavior
@@ -196,14 +235,31 @@ $(document).ready(function() {
 
         // Method to update label
         setLabel: function(newLabel) {
-            this.labelText = newLabel;
-            this.canvas.renderAll();
+            this.labelText = newLabel || 'Boundary'; // Fallback to 'Boundary' if undefined
+            if (this.canvas) this.canvas.renderAll();
         },
 
         // Method to update sublabel
         setSublabel: function(newSublabel) {
-            this.sublabelText = newSublabel;
-            this.canvas.renderAll();
+            this.sublabelText = newSublabel || ''; // Fallback to empty string if undefined
+            if (this.canvas) this.canvas.renderAll();
+        },
+
+        // Method to convert to JSON for saving
+        toJSON: function() {
+            return {
+                type: 'Boundary',
+                left: this.left,
+                top: this.top,
+                width: this.width,
+                height: this.height,
+                labelText: this.labelText,
+                sublabelText: this.sublabelText,
+                lockMovementX: this.lockMovementX,
+                lockMovementY: this.lockMovementY,
+                isInStencil: this.isInStencil,
+                zIndex: this.zIndex
+            };
         }
     });
 
@@ -310,8 +366,8 @@ $(document).ready(function() {
                     var clone = new fabric.ElementWithPorts({
                         left: 50,
                         top: 50,
-                        labelText: stencilElement.labelText,
-                        sublabelText: stencilElement.sublabelText,
+                        labelText: stencilElement.labelText, // Use the stencil element's label
+                        sublabelText: stencilElement.sublabelText, // Use the stencil element's sublabel
                         ports: stencilElement.ports,
                         data: stencilElement.data,
                         lockMovementX: false,
@@ -454,6 +510,7 @@ $(document).ready(function() {
                         $("#flow-props").hide();
                         $("#port-props").show();
                         $("#boundary-props").hide();
+                        $("#threats-section").hide();
                         var portData = closestPort.type === 'in' ? target.data.inPort : (closestPort.type === 'out' ? target.data.outPort : target.data.additionalPorts[closestPort.index - 2]);
                         $("#portProtocol").val(portData.protocol).change(function() {
                             portData.protocol = this.value;
@@ -485,6 +542,7 @@ $(document).ready(function() {
                 $("#flow-props").show();
                 $("#port-props").hide();
                 $("#boundary-props").hide();
+                $("#threats-section").hide();
                 var link = target;
                 var linkData = link.data;
                 $("#flowIsEncrypted").prop("checked", linkData.isEncrypted).change(function() {
@@ -524,6 +582,7 @@ $(document).ready(function() {
             $("#flow-props").hide();
             $("#port-props").hide();
             $("#boundary-props").hide();
+            $("#threats-section").hide();
             var elementData = selectedElement.data;
             $("#isEncrypted").prop("checked", elementData.isEncrypted).change(function() {
                 elementData.isEncrypted = this.checked;
@@ -558,6 +617,7 @@ $(document).ready(function() {
             $("#flow-props").hide();
             $("#port-props").hide();
             $("#boundary-props").show();
+            $("#threats-section").hide();
             // Add boundary label and sublabel input fields
             $("#boundary-label").val(selectedElement.labelText).off('change').change(function() {
                 selectedElement.setLabel(this.value);
@@ -581,6 +641,7 @@ $(document).ready(function() {
             $("#flow-props").hide();
             $("#port-props").hide();
             $("#boundary-props").hide();
+            $("#threats-section").show();
             mainCanvas.renderAll();
             console.log("Cleared selection by clicking on blank space");
         }
@@ -654,6 +715,10 @@ $(document).ready(function() {
 
 // Helper function to get absolute position of a port
 function getAbsolutePortPosition(element, port) {
+    if (!port || typeof port.left !== 'number' || typeof port.top !== 'number') {
+        console.error('Invalid port object:', port);
+        return { x: 0, y: 0 }; // Fallback position to avoid crashing
+    }
     var matrix = element.calcTransformMatrix();
     var portPos = fabric.util.transformPoint(
         new fabric.Point(port.left, port.top),
@@ -711,27 +776,136 @@ $(document).on('keydown', function(event) {
         $("#flow-props").hide();
         $("#port-props").hide();
         $("#boundary-props").hide();
+        $("#threats-section").show();
         mainCanvas.renderAll();
     }
 });
 
-// Threat Feed Config (moved to separate page, handled in threat-feed.html)
+// Save AI settings to localStorage
+function saveApiSettings() {
+    aiSettings.provider = $('#ai-provider').val();
+    aiSettings.apiKey = $('#ai-api-key').val();
+    localStorage.setItem('aiSettings', JSON.stringify(aiSettings));
+    alert("AI settings saved!");
+}
 
-function saveFeedConfig() {
-    alert("Threat feed configuration saved!");
+// Function to call AI API for threat model overview and findings enhancement
+async function enhanceWithAI(elements, flows, threats) {
+    if (!aiSettings.apiKey) {
+        alert("Please configure your AI API key in the settings.");
+        return { overview: "", enhancedThreats: threats };
+    }
+
+    // Prepare the prompt for the AI
+    const elementsDescription = elements.map(e => `${e.label} (Type: ${e.type}, Encrypted: ${e.isEncrypted})`).join("\n");
+    const flowsDescription = flows.map(f => `${f.from} -> ${f.to} (Protocol: ${f.protocol}, Encrypted: ${f.isEncrypted})`).join("\n");
+    const threatsDescription = threats.map(t => `Component: ${t.component}, Reason: ${t.reason}, Threat: ${t.threat}, Severity: ${t.severity}`).join("\n");
+
+    const prompt = `
+You are a cybersecurity expert tasked with preparing a threat model overview and enhancing threat findings for a system architecture. Below is the system description:
+
+**Elements:**
+${elementsDescription}
+
+**Flows:**
+${flowsDescription}
+
+**Initial Threats Identified:**
+${threatsDescription}
+
+### Tasks:
+1. **Threat Model Overview**: Provide a concise overview of the threat model, highlighting key risks and potential attack vectors based on the elements and flows.
+2. **Enhanced Findings**: For each threat, enhance the description by adding potential mitigation strategies and any additional insights that could help in understanding or addressing the threat.
+
+### Output Format:
+- **Overview**: A paragraph summarizing the threat model.
+- **Enhanced Threats**: A list of threats with their original details plus an "Enhanced Description" field containing your insights and mitigations.
+`;
+
+    try {
+        let response;
+        if (aiSettings.provider === 'openai') {
+            // OpenAI API call
+            response = await $.ajax({
+                url: 'https://api.openai.com/v1/chat/completions',
+                type: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${aiSettings.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({
+                    model: 'gpt-4o',
+                    messages: [
+                        { role: 'system', content: 'You are a cybersecurity expert.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 1500,
+                    temperature: 0.7
+                })
+            });
+
+            const aiResponse = response.choices[0].message.content;
+            const [overviewSection, threatsSection] = aiResponse.split('### Enhanced Threats');
+            const overview = overviewSection.replace('### Overview', '').trim();
+            const enhancedThreatsLines = threatsSection.trim().split('\n').filter(line => line.trim());
+            const enhancedThreats = threats.map((threat, index) => {
+                const enhancedDesc = enhancedThreatsLines[index] || '';
+                return { ...threat, enhancedDescription: enhancedDesc };
+            });
+
+            return { overview, enhancedThreats };
+        } else if (aiSettings.provider === 'grok') {
+            // Grok API call
+            response = await $.ajax({
+                url: 'https://api.x.ai/v1/chat/completions',
+                type: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${aiSettings.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({
+                    model: 'grok-3',
+                    messages: [
+                        { role: 'system', content: 'You are a cybersecurity expert.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 1500,
+                    temperature: 0.7
+                })
+            });
+
+            const aiResponse = response.choices[0].message.content;
+            const [overviewSection, threatsSection] = aiResponse.split('### Enhanced Threats');
+            const overview = overviewSection.replace('### Overview', '').trim();
+            const enhancedThreatsLines = threatsSection.trim().split('\n').filter(line => line.trim());
+            const enhancedThreats = threats.map((threat, index) => {
+                const enhancedDesc = enhancedThreatsLines[index] || '';
+                return { ...threat, enhancedDescription: enhancedDesc };
+            });
+
+            return { overview, enhancedThreats };
+        }
+    } catch (error) {
+        console.error("Error calling AI API:", error);
+        alert("Failed to enhance threat model with AI: " + (error.responseJSON?.error?.message || error.message));
+        return { overview: "", enhancedThreats: threats };
+    }
 }
 
 function analyze() {
     var elements = mainCanvas.getObjects().filter(obj => obj instanceof fabric.ElementWithPorts).map(e => ({
         type: e.data.type,
         label: e.labelText,
+        sublabel: e.sublabelText,
         isEncrypted: e.data.isEncrypted,
         implementsAuthenticationScheme: e.data.implementsAuthenticationScheme,
         sanitizesInput: e.data.sanitizesInput,
         isPublic: e.data.isPublic,
         inPort: e.data.inPort,
         outPort: e.data.outPort,
-        additionalPorts: e.data.additionalPorts
+        additionalPorts: e.data.additionalPorts,
+        left: e.left,
+        top: e.top
     }));
     var flows = mainCanvas.getObjects().filter(obj => obj instanceof fabric.Path).map(l => ({
         from: l.data.source.labelText,
@@ -739,6 +913,19 @@ function analyze() {
         label: l.data.protocol,
         protocol: l.data.protocol,
         isEncrypted: l.data.isEncrypted
+    }));
+    var boundaries = mainCanvas.getObjects().filter(obj => obj instanceof fabric.Boundary).map(b => ({
+        type: 'Boundary',
+        left: b.left,
+        top: b.top,
+        width: b.width,
+        height: b.height,
+        labelText: b.labelText,
+        sublabelText: b.sublabelText,
+        lockMovementX: b.lockMovementX,
+        lockMovementY: b.lockMovementY,
+        isInStencil: b.isInStencil,
+        zIndex: b.zIndex
     }));
     var feedConfig = {
         source: $("#feed-source").val() || "otx",
@@ -751,10 +938,74 @@ function analyze() {
         type: "POST",
         contentType: "application/json",
         data: JSON.stringify({ name: "Custom System", elements: elements, flows: flows, feedConfig: feedConfig }),
-        success: function(response) {
-            // Use the report filename from the response
+        success: async function(response) {
+            let threats = response.threats.map(threat => ({
+                component: threat.component,
+                reason: threat.reason,
+                threat: threat.threat,
+                severity: threat.severity,
+                best_practices: threat.best_practices,
+                comment: threat.comment || "",
+                status: threat.status || "Open"
+            }));
+
+            // Check if AI-supported analysis is enabled
+            if ($("#ai-supported-analysis").is(":checked")) {
+                const { overview, enhancedThreats } = await enhanceWithAI(elements, flows, threats);
+                $("#threat-model-overview-text").text(overview);
+                $("#threat-model-overview").show();
+                threats = enhancedThreats;
+            } else {
+                $("#threat-model-overview").hide();
+            }
+
+            // Store the project data with findings
+            projectData = {
+                elements: elements,
+                flows: flows,
+                boundaries: boundaries,
+                feedConfig: feedConfig,
+                threats: threats
+            };
+
+            // Display threats in the UI
+            $("#threats-section").show();
+            $("#element-props").hide();
+            $("#flow-props").hide();
+            $("#port-props").hide();
+            $("#boundary-props").hide();
+
+            var tableBody = $("#threat-table-body");
+            tableBody.empty();
+
+            threats.forEach((threat, index) => {
+                var row = `
+                    <tr ${threat.status !== "Open" ? 'style="background-color: #d3d3d3;"' : ''}>
+                        <td>${threat.component}</td>
+                        <td>${threat.reason}</td>
+                        <td>${threat.threat}${threat.enhancedDescription ? '<br><strong>Enhanced:</strong> ' + threat.enhancedDescription : ''}</td>
+                        <td>
+                            <select id="severity-${index}" onchange="updateThreat(${index}, 'severity', this.value)">
+                                <option value="Low" ${threat.severity === 'Low' ? 'selected' : ''}>Low</option>
+                                <option value="Medium" ${threat.severity === 'Medium' ? 'selected' : ''}>Medium</option>
+                                <option value="High" ${threat.severity === 'High' ? 'selected' : ''}>High</option>
+                            </select>
+                        </td>
+                        <td>
+                            <textarea id="comment-${index}" placeholder="Add comment..." onblur="updateThreat(${index}, 'comment', this.value)">${threat.comment || ''}</textarea>
+                        </td>
+                        <td>
+                            <button onclick="closeFinding(${index}, 'False Positive')" ${threat.status !== "Open" ? 'disabled' : ''}>False Positive</button>
+                            <button onclick="closeFinding(${index}, 'Already Addressed')" ${threat.status !== "Open" ? 'disabled' : ''}>Already Addressed</button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.append(row);
+            });
+
+            // Provide a link to download the report
             if (response.report) {
-                window.location.href = `/download/${response.report}`;
+                $("#download-report").attr("href", `/download/${response.report}`).show();
             } else {
                 alert("No report generated");
             }
@@ -763,6 +1014,22 @@ function analyze() {
             alert("Analysis failed: " + error);
         }
     });
+}
+
+function updateThreat(index, field, value) {
+    if (projectData && projectData.threats && projectData.threats[index]) {
+        projectData.threats[index][field] = value;
+        console.log(`Updated threat ${index}: ${field} = ${value}`);
+    }
+}
+
+function closeFinding(index, reason) {
+    if (projectData && projectData.threats && projectData.threats[index]) {
+        projectData.threats[index].status = reason;
+        console.log(`Closed threat ${index}: ${reason}`);
+        $(`#threat-table-body tr:eq(${index})`).css('background-color', '#d3d3d3');
+        $(`#threat-table-body tr:eq(${index}) button`).prop('disabled', true);
+    }
 }
 
 function autoAWS() {
@@ -848,11 +1115,233 @@ function startWizard() {
     }, 1000);
 }
 
+// Save the project as JSON
+function saveProject() {
+    if (!projectData) {
+        alert("No project data to save. Please analyze the diagram first.");
+        return;
+    }
+
+    var projectJson = JSON.stringify(projectData, null, 2);
+    var blob = new Blob([projectJson], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = `project_${new Date().toISOString().replace(/[:.]/g, '_')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Load the project from a JSON file
+function loadProject() {
+    $("#load-project-file").click();
+}
+
+function loadProjectFile(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            console.log("Loading project JSON...");
+            projectData = JSON.parse(e.target.result);
+            console.log("Project JSON parsed:", projectData);
+
+            // Clear the canvas
+            mainCanvas.clear();
+            console.log("Canvas cleared");
+
+            // Reconstruct elements
+            projectData.elements.forEach((element, idx) => {
+                console.log(`Reconstructing element ${idx}: ${element.label || 'undefined'}`);
+                // Ensure ports are properly structured
+                element.ports = element.ports || [
+                    { type: 'in', color: '#ff0000', position: { left: -65, top: 0 } },
+                    { type: 'out', color: '#00ff00', position: { left: 65, top: 0 } }
+                ];
+                // Validate each port
+                element.ports = element.ports.map((port, portIdx) => {
+                    if (!port.type || !port.color || !port.position || typeof port.position.left !== 'number' || typeof port.position.top !== 'number') {
+                        console.warn(`Invalid port ${portIdx} in element ${element.label || 'undefined'}, using default`);
+                        return {
+                            type: port.type || (portIdx === 0 ? 'in' : 'out'),
+                            color: port.color || (portIdx === 0 ? '#ff0000' : '#00ff00'),
+                            position: port.position || { left: portIdx === 0 ? -65 : 65, top: 0 }
+                        };
+                    }
+                    return port;
+                });
+
+                var newElement = new fabric.ElementWithPorts({
+                    left: element.left,
+                    top: element.top,
+                    labelText: element.label, // Use the correct property name from analyze()
+                    sublabelText: element.sublabel, // Use the correct property name from analyze()
+                    ports: element.ports,
+                    data: element,
+                    lockMovementX: element.lockMovementX || false,
+                    lockMovementY: element.lockMovementY || false
+                });
+                newElement.setLabel(element.label); // Ensure label is set with fallback
+                newElement.setSublabel(element.sublabel); // Ensure sublabel is set with fallback
+                mainCanvas.add(newElement);
+                console.log(`Added element ${element.label || 'undefined'} with ${newElement.ports.length} ports`);
+            });
+
+            // Reconstruct boundaries
+            if (projectData.boundaries) {
+                projectData.boundaries.forEach((boundary, idx) => {
+                    console.log(`Reconstructing boundary ${idx}: ${boundary.labelText}`);
+                    var newBoundary = new fabric.Boundary({
+                        left: boundary.left,
+                        top: boundary.top,
+                        width: boundary.width,
+                        height: boundary.height,
+                        labelText: boundary.labelText,
+                        sublabelText: boundary.sublabelText,
+                        lockMovementX: boundary.lockMovementX || false,
+                        lockMovementY: boundary.lockMovementY || false,
+                        isInStencil: boundary.isInStencil || false,
+                        zIndex: boundary.zIndex || 0
+                    });
+                    newBoundary.setLabel(boundary.labelText); // Ensure label is set
+                    newBoundary.setSublabel(boundary.sublabelText); // Ensure sublabel is set
+                    mainCanvas.add(newBoundary);
+                    console.log(`Added boundary ${boundary.labelText}`);
+                });
+            }
+
+            // Force a render to ensure all elements are drawn
+            mainCanvas.renderAll();
+            console.log("Elements and boundaries rendered");
+
+            // Reconstruct flows (arrows) after all elements are added
+            if (projectData.flows) {
+                projectData.flows.forEach((flow, idx) => {
+                    console.log(`Reconstructing flow ${idx}: ${flow.from} -> ${flow.to}`);
+                    var sourceElement = mainCanvas.getObjects().find(obj => obj.labelText === flow.from && obj instanceof fabric.ElementWithPorts);
+                    var targetElement = mainCanvas.getObjects().find(obj => obj.labelText === flow.to && obj instanceof fabric.ElementWithPorts);
+                    if (sourceElement && targetElement) {
+                        console.log(`Source element: ${sourceElement.labelText}, Target element: ${targetElement.labelText}`);
+                        console.log(`Source ports:`, sourceElement.ports);
+                        console.log(`Target ports:`, targetElement.ports);
+
+                        var sourcePortIndex = sourceElement.ports.findIndex(p => p.type === 'out');
+                        var targetPortIndex = targetElement.ports.findIndex(p => p.type === 'in');
+
+                        console.log(`Source port index: ${sourcePortIndex}, Target port index: ${targetPortIndex}`);
+
+                        if (sourcePortIndex !== -1 && targetPortIndex !== -1) {
+                            var sourcePort = sourceElement.item(sourcePortIndex + 3); // Adjust index due to rect, label, sublabel
+                            var targetPort = targetElement.item(targetPortIndex + 3); // Adjust index due to rect, label, sublabel
+                            if (sourcePort && targetPort) {
+                                console.log(`Source port object:`, sourcePort);
+                                console.log(`Target port object:`, targetPort);
+                                var sourcePortPos = getAbsolutePortPosition(sourceElement, sourcePort);
+                                var targetPortPos = getAbsolutePortPosition(targetElement, targetPort);
+                                console.log(`Source port position: (${sourcePortPos.x}, ${sourcePortPos.y}), Target port position: (${targetPortPos.x}, ${targetPortPos.y})`);
+                                var arrow = new fabric.Path(`M ${sourcePortPos.x} ${sourcePortPos.y} L ${targetPortPos.x} ${targetPortPos.y} M ${targetPortPos.x - 10} ${targetPortPos.y - 5} L ${targetPortPos.x} ${targetPortPos.y} L ${targetPortPos.x - 10} ${targetPortPos.y + 5}`, {
+                                    stroke: '#333',
+                                    strokeWidth: 2,
+                                    fill: '',
+                                    selectable: true,
+                                    data: {
+                                        source: sourceElement,
+                                        target: targetElement,
+                                        sourcePort: sourceElement.ports[sourcePortIndex],
+                                        targetPort: targetElement.ports[targetPortIndex],
+                                        isEncrypted: flow.isEncrypted,
+                                        protocol: flow.protocol
+                                    }
+                                });
+                                mainCanvas.add(arrow);
+                                console.log(`Added flow from ${flow.from} to ${flow.to}`);
+                            } else {
+                                console.error(`Failed to find port objects for flow from ${flow.from} to ${flow.to}`);
+                            }
+                        } else {
+                            console.error(`Failed to find 'out' or 'in' port for flow from ${flow.from} to ${flow.to}`);
+                        }
+                    } else {
+                        console.error(`Failed to find source (${flow.from}) or target (${flow.to}) for flow`);
+                    }
+                });
+            } else {
+                console.log("No flows to reconstruct");
+            }
+
+            // Force a final render to ensure all arrows are drawn
+            mainCanvas.renderAll();
+            console.log("Flows rendered");
+
+            // Display threats in the UI
+            $("#threats-section").show();
+            $("#element-props").hide();
+            $("#flow-props").hide();
+            $("#port-props").hide();
+            $("#boundary-props").hide();
+
+            var tableBody = $("#threat-table-body");
+            tableBody.empty();
+
+            if (projectData.threats) {
+                projectData.threats.forEach((threat, index) => {
+                    var row = `
+                        <tr ${threat.status !== "Open" ? 'style="background-color: #d3d3d3;"' : ''}>
+                            <td>${threat.component}</td>
+                            <td>${threat.reason}</td>
+                            <td>${threat.threat}${threat.enhancedDescription ? '<br><strong>Enhanced:</strong> ' + threat.enhancedDescription : ''}</td>
+                            <td>
+                                <select id="severity-${index}" onchange="updateThreat(${index}, 'severity', this.value)">
+                                    <option value="Low" ${threat.severity === 'Low' ? 'selected' : ''}>Low</option>
+                                    <option value="Medium" ${threat.severity === 'Medium' ? 'selected' : ''}>Medium</option>
+                                    <option value="High" ${threat.severity === 'High' ? 'selected' : ''}>High</option>
+                                </select>
+                            </td>
+                            <td>
+                                <textarea id="comment-${index}" placeholder="Add comment..." onblur="updateThreat(${index}, 'comment', this.value)">${threat.comment || ''}</textarea>
+                            </td>
+                            <td>
+                                <button onclick="closeFinding(${index}, 'False Positive')" ${threat.status !== "Open" ? 'disabled' : ''}>False Positive</button>
+                                <button onclick="closeFinding(${index}, 'Already Addressed')" ${threat.status !== "Open" ? 'disabled' : ''}>Already Addressed</button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.append(row);
+                });
+                console.log("Threats table populated");
+            } else {
+                console.log("No threats to display");
+            }
+
+            // Display AI-generated threat model overview if available
+            if (projectData.threatModelOverview) {
+                $("#threat-model-overview-text").text(projectData.threatModelOverview);
+                $("#threat-model-overview").show();
+            } else {
+                $("#threat-model-overview").hide();
+            }
+
+            mainCanvas.renderAll();
+            alert("Project loaded successfully!");
+        } catch (error) {
+            console.error("Error loading project:", error);
+            alert("Error loading project: " + error);
+        }
+    };
+    reader.readAsText(file);
+}
+
 // Expose functions to global scope
-window.saveFeedConfig = saveFeedConfig;
+window.saveApiSettings = saveApiSettings;
 window.analyze = analyze;
 window.autoAWS = autoAWS;
 window.startWizard = startWizard;
+window.saveProject = saveProject;
+window.loadProject = loadProject;
 
 // Track Ctrl key state
 $(document).on('keydown', function(event) {

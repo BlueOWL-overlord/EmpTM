@@ -38,80 +38,70 @@
         return gk_fileData[filename] || "";
         }
         </script><!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>EmpTM: Threat Feed Configuration</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            // Handle dropdown change to show/hide custom URL field
-            $("#feed-source").change(function() {
-                if ($(this).val() === "custom") {
-                    $("#custom-url-label").show();
-                } else {
-                    $("#custom-url-label").hide();
-                }
-            });
-
-            // Load saved configuration if it exists
-            $.getJSON('/load-threat-feed-config', function(data) {
-                if (data && Object.keys(data).length > 0) {
-                    $("#feed-source").val(data.source || "otx");
-                    $("#feed-api-key").val(data.apiKey || "");
-                    if (data.source === "custom") {
-                        $("#feed-custom-url").val(data.customUrl || "");
-                        $("#custom-url-label").show();
-                    } else {
-                        $("#custom-url-label").hide();
-                    }
-                }
-            }).fail(function() {
-                console.error("Failed to load threat feed configuration");
-            });
-
-            // Save configuration when button is clicked
-            window.saveFeedConfig = function() {
-                var config = {
-                    source: $("#feed-source").val(),
-                    apiKey: $("#feed-api-key").val(),
-                    customUrl: $("#feed-source").val() === "custom" ? $("#feed-custom-url").val() : null
-                };
-                $.ajax({
-                    url: "/save-threat-feed-config",
-                    type: "POST",
-                    contentType: "application/json",
-                    data: JSON.stringify(config),
-                    success: function(response) {
-                        alert("Threat feed configuration saved!");
-                    },
-                    error: function(xhr, status, error) {
-                        alert("Failed to save configuration: " + error);
-                    }
-                });
-            };
-        });
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threat Feed Configuration</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/script.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        #custom-url {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <nav>
-        <button onclick="window.location.href='/';">Back to Main Page</button>
-    </nav>
-    <h1>EmpTM: Threat Feed Configuration</h1>
-    <div id="threat-feed-config">
+    <div class="container">
+        <h1>Threat Feed Configuration</h1>
         <label>Feed Source:
-            <select id="feed-source">
+            <select id="feed-source" onchange="toggleCustomUrl()">
                 <option value="otx">AlienVault OTX</option>
                 <option value="virustotal">VirusTotal</option>
                 <option value="mitre">MITRE ATT&CK</option>
                 <option value="custom">Custom</option>
             </select>
-        </label><br>
-        <label>API Key: <input type="text" id="feed-api-key" placeholder="Enter API key if required"></label><br>
-        <label id="custom-url-label" style="display:none;">Custom URL: <input type="text" id="feed-custom-url" placeholder="e.g., https://api.example.com"></label><br>
+        </label>
+        <label id="custom-url">Custom URL: <input type="text" id="feed-custom-url"></label>
+        <label>API Key: <input type="text" id="feed-api-key"></label>
         <button onclick="saveFeedConfig()">Save Config</button>
     </div>
+    <script>
+        function toggleCustomUrl() {
+            var source = document.getElementById('feed-source').value;
+            document.getElementById('custom-url').style.display = source === 'custom' ? 'block' : 'none';
+        }
+
+        $(document).ready(function() {
+            // Load existing config if available
+            $.get('/load-threat-feed-config', function(data) {
+                if (data.source) {
+                    $('#feed-source').val(data.source);
+                    toggleCustomUrl();
+                    if (data.customUrl) $('#feed-custom-url').val(data.customUrl);
+                    if (data.apiKey) $('#feed-api-key').val(data.apiKey);
+                }
+            });
+        });
+    </script>
 </body>
 </html>

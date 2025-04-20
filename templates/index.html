@@ -38,97 +38,191 @@
         return gk_fileData[filename] || "";
         }
         </script><!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>EmpTM</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmpTM: Draw Your DFD</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="/static/script.js"></script>
-    <script>
-        $(document).ready(function() {
-            // Show Quick Start overlay on page load
-            $("#quick-start-overlay").show();
-
-            // Close overlay when close button is clicked
-            $("#close-quick-start").click(function() {
-                $("#quick-start-overlay").hide();
-            });
-
-            // Show overlay when button is clicked
-            $("#show-quick-start").click(function() {
-                $("#quick-start-overlay").show();
-            });
-        });
-    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            background-color: #f8f8f8;
+            padding: 10px;
+            text-align: center;
+        }
+        .content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .stencil-panel {
+            width: 300px;
+            background-color: #e0e0e0;
+            border-right: 2px solid #666;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .stencil-header {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .canvas-container {
+            flex: 1;
+            position: relative;
+        }
+        #main-canvas {
+            border: 1px solid #ccc;
+        }
+        .properties-panel {
+            width: 300px;
+            background-color: #f0f0f0;
+            border-left: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .properties-panel h3 {
+            margin-top: 0;
+        }
+        .properties-panel div {
+            margin-bottom: 10px;
+        }
+        .threat-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .threat-table th, .threat-table td {
+            border: 1px solid #ccc;
+            padding: 5px;
+            text-align: left;
+        }
+        .threat-table th {
+            background-color: #ddd;
+        }
+        .threat-table td textarea {
+            width: 100%;
+            height: 50px;
+        }
+        .threat-table td select {
+            width: 100%;
+        }
+        #ai-settings {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+        }
+        #ai-settings label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        #ai-settings select, #ai-settings input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
-    <nav>
-        <button id="show-quick-start">Quick Start</button>
-        <button onclick="window.location.href='/threat-feed';">Threat Feed Config</button>
-    </nav>
-    <h1>EmpTM: Draw Your DFD</h1>
     <div class="container">
-        <div id="stencil">
-            <h3>Elements</h3>
-            <canvas id="stencil-canvas" style="visibility: visible;"></canvas>
+        <div class="header">
+            <h1>EmpTM: Draw Your DFD</h1>
+            <button onclick="startWizard()">Guided Setup</button>
+            <button onclick="saveProject()">Save Project</button>
+            <button onclick="loadProject()">Load Project</button>
+            <input type="file" id="load-project-file" style="display: none;" onchange="loadProjectFile(event)">
+            <label><input type="checkbox" id="ai-supported-analysis"> AI-Supported Analysis</label>
+            <button onclick="analyze()">Analyze</button>
+            <a id="download-report" style="display: none;">Download Report</a>
         </div>
-        <div id="canvas">
-            <canvas id="main-canvas"></canvas>
-        </div>
-        <div id="properties">
-            <h3>Properties</h3>
-            <div id="element-props" style="display:none;">
-                <label title="Custom name for the element">Sublabel: <input type="text" id="sublabel" placeholder="Enter custom name"></label><br>
-                <label title="Enable if data is encrypted at rest or in transit">Encrypted: <input type="checkbox" id="isEncrypted"></label><br>
-                <label title="Enable if authentication is required">Authenticated: <input type="checkbox" id="implementsAuthenticationScheme"></label><br>
-                <label title="Enable if input is validated/sanitized">Sanitizes Input: <input type="checkbox" id="sanitizesInput"></label><br>
-                <label id="public-label" style="display:none;" title="Enable if publicly accessible">Public: <input type="checkbox" id="isPublic"></label>
+        <div class="content">
+            <div class="stencil-panel">
+                <div class="stencil-header">Elements</div>
+                <canvas id="stencil-canvas"></canvas>
             </div>
-            <div id="flow-props" style="display:none;">
-                <label title="Enable if flow uses encryption (e.g., TLS)">Encrypted: <input type="checkbox" id="flowIsEncrypted"></label><br>
-                <label title="Specify the protocol (e.g., HTTP, HTTPS)">Protocol: <input type="text" id="protocol" value="HTTP"></label>
+            <div class="canvas-container">
+                <canvas id="main-canvas"></canvas>
             </div>
-            <div id="port-props" style="display:none; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;">
-                <h4>Port Properties</h4>
-                <label title="Specify the protocol used by the port">Protocol:
-                    <select id="portProtocol">
-                        <option value="TCP">TCP</option>
-                        <option value="UDP">UDP</option>
+            <div class="properties-panel">
+                <h3>Properties</h3>
+                <div id="element-props" style="display: none;">
+                    <label><input type="checkbox" id="isEncrypted"> Is Encrypted</label><br>
+                    <label><input type="checkbox" id="implementsAuthenticationScheme"> Implements Authentication Scheme</label><br>
+                    <label><input type="checkbox" id="sanitizesInput"> Sanitizes Input</label><br>
+                    <label id="public-label" style="display: none;"><input type="checkbox" id="isPublic"> Is Public</label><br>
+                    <label id="sublabel-label"><span>Sublabel: </span><input type="text" id="sublabel"></label>
+                </div>
+                <div id="flow-props" style="display: none;">
+                    <label><input type="checkbox" id="flowIsEncrypted"> Is Encrypted</label><br>
+                    <label>Protocol: <select id="protocol">
                         <option value="HTTP">HTTP</option>
                         <option value="HTTPS">HTTPS</option>
-                        <option value="FTP">FTP</option>
-                        <option value="SSH">SSH</option>
-                        <option value="SMTP">SMTP</option>
-                    </select>
-                </label><br>
-                <label title="Specify the port number">Port Number: <input type="number" id="portNumber" min="0" max="65535"></label><br>
-                <label title="Enable if the port uses encryption">Encrypted: <input type="checkbox" id="portIsEncrypted"></label><br>
-                <label title="Enable if authentication is required">Requires Authentication: <input type="checkbox" id="portRequiresAuthentication"></label>
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                    </select></label>
+                </div>
+                <div id="port-props" style="display: none;">
+                    <label>Protocol: <select id="portProtocol">
+                        <option value="HTTP">HTTP</option>
+                        <option value="HTTPS">HTTPS</option>
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                    </select></label><br>
+                    <label>Port Number: <input type="number" id="portNumber"></label><br>
+                    <label><input type="checkbox" id="portIsEncrypted"> Is Encrypted</label><br>
+                    <label><input type="checkbox" id="portRequiresAuthentication"> Requires Authentication</label>
+                </div>
+                <div id="boundary-props" style="display: none;">
+                    <label>Label: <input type="text" id="boundary-label"></label><br>
+                    <label>Sublabel: <input type="text" id="boundary-sublabel"></label>
+                </div>
+                <div id="ai-settings">
+                    <h4>AI Settings</h4>
+                    <label>AI Provider: <select id="ai-provider">
+                        <option value="openai">OpenAI</option>
+                        <option value="grok">Grok</option>
+                    </select></label>
+                    <label>API Key: <input type="text" id="ai-api-key" placeholder="Enter your API key"></label>
+                    <button onclick="saveApiSettings()">Save API Settings</button>
+                </div>
+                <div id="threats-section" style="display: none;">
+                    <h3>Threat Findings</h3>
+                    <div id="threat-model-overview" style="display: none;">
+                        <h4>Threat Model Overview</h4>
+                        <p id="threat-model-overview-text"></p>
+                    </div>
+                    <table class="threat-table" id="threat-table">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Reason</th>
+                                <th>Threat</th>
+                                <th>Severity</th>
+                                <th>Comment</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="threat-table-body"></tbody>
+                    </table>
+                </div>
             </div>
-            <div id="boundary-props" style="display:none; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;">
-                <h4>Boundary Properties</h4>
-                <label title="Name of the boundary">Boundary Label: <input type="text" id="boundary-label" placeholder="Enter boundary name"></label><br>
-                <label title="Custom name for the boundary">Sublabel: <input type="text" id="boundary-sublabel" placeholder="Enter custom name"></label>
-            </div>
-        </div>
-    </div>
-    <button onclick="analyze()">Analyze</button>
-
-    <!-- Quick Start Overlay -->
-    <div id="quick-start-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
-            <h3>Quick Start</h3>
-            <p>1. Drag elements or boundaries from the left to the canvas.</p>
-            <p>2. Place elements inside boundaries to group them.</p>
-            <p>3. Connect elements with links to define flows.</p>
-            <p>4. Click elements/links to set properties.</p>
-            <p>5. Click "Analyze" to generate a report.</p>
-            <button onclick="startWizard()">Guided Setup</button>
-            <button onclick="autoAWS()">Auto-Generate from AWS</button>
-            <button id="close-quick-start" style="margin-top: 10px;">Close</button>
         </div>
     </div>
 </body>
