@@ -123,6 +123,21 @@
         .threat-table td select {
             width: 100%;
         }
+        #ai-settings {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+        }
+        #ai-settings label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        #ai-settings select, #ai-settings input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -133,6 +148,7 @@
             <button onclick="saveProject()">Save Project</button>
             <button onclick="loadProject()">Load Project</button>
             <input type="file" id="load-project-file" style="display: none;" onchange="loadProjectFile(event)">
+            <label><input type="checkbox" id="ai-supported-analysis"> AI-Supported Analysis</label>
             <button onclick="analyze()">Analyze</button>
             <a id="download-report" style="display: none;">Download Report</a>
         </div>
@@ -177,8 +193,21 @@
                     <label>Label: <input type="text" id="boundary-label"></label><br>
                     <label>Sublabel: <input type="text" id="boundary-sublabel"></label>
                 </div>
+                <div id="ai-settings">
+                    <h4>AI Settings</h4>
+                    <label>AI Provider: <select id="ai-provider">
+                        <option value="openai">OpenAI</option>
+                        <option value="grok">Grok</option>
+                    </select></label>
+                    <label>API Key: <input type="text" id="ai-api-key" placeholder="Enter your API key"></label>
+                    <button onclick="saveApiSettings()">Save API Settings</button>
+                </div>
                 <div id="threats-section" style="display: none;">
                     <h3>Threat Findings</h3>
+                    <div id="threat-model-overview" style="display: none;">
+                        <h4>Threat Model Overview</h4>
+                        <p id="threat-model-overview-text"></p>
+                    </div>
                     <table class="threat-table" id="threat-table">
                         <thead>
                             <tr>

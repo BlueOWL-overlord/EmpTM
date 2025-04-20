@@ -7,9 +7,18 @@ let selectedPort = null;
 let mainCanvas = null; // Will be initialized in $(document).ready
 let selectedElement = null;
 let projectData = null; // Store project data for saving/loading
+let aiSettings = { provider: 'openai', apiKey: '' }; // Store AI provider and API key
 
 $(document).ready(function() {
     console.log("script.js loaded");
+
+    // Load AI settings from localStorage if available
+    const savedAiSettings = localStorage.getItem('aiSettings');
+    if (savedAiSettings) {
+        aiSettings = JSON.parse(savedAiSettings);
+        $('#ai-provider').val(aiSettings.provider);
+        $('#ai-api-key').val(aiSettings.apiKey);
+    }
 
     // Initialize Fabric.js canvases
     var stencilCanvas = new fabric.Canvas('stencil-canvas', {
@@ -772,17 +781,122 @@ $(document).on('keydown', function(event) {
     }
 });
 
-// Threat Feed Config (moved to separate page, handled in threat-feed.html)
+// Save AI settings to localStorage
+function saveApiSettings() {
+    aiSettings.provider = $('#ai-provider').val();
+    aiSettings.apiKey = $('#ai-api-key').val();
+    localStorage.setItem('aiSettings', JSON.stringify(aiSettings));
+    alert("AI settings saved!");
+}
 
-function saveFeedConfig() {
-    alert("Threat feed configuration saved!");
+// Function to call AI API for threat model overview and findings enhancement
+async function enhanceWithAI(elements, flows, threats) {
+    if (!aiSettings.apiKey) {
+        alert("Please configure your AI API key in the settings.");
+        return { overview: "", enhancedThreats: threats };
+    }
+
+    // Prepare the prompt for the AI
+    const elementsDescription = elements.map(e => `${e.label} (Type: ${e.type}, Encrypted: ${e.isEncrypted})`).join("\n");
+    const flowsDescription = flows.map(f => `${f.from} -> ${f.to} (Protocol: ${f.protocol}, Encrypted: ${f.isEncrypted})`).join("\n");
+    const threatsDescription = threats.map(t => `Component: ${t.component}, Reason: ${t.reason}, Threat: ${t.threat}, Severity: ${t.severity}`).join("\n");
+
+    const prompt = `
+You are a cybersecurity expert tasked with preparing a threat model overview and enhancing threat findings for a system architecture. Below is the system description:
+
+**Elements:**
+${elementsDescription}
+
+**Flows:**
+${flowsDescription}
+
+**Initial Threats Identified:**
+${threatsDescription}
+
+### Tasks:
+1. **Threat Model Overview**: Provide a concise overview of the threat model, highlighting key risks and potential attack vectors based on the elements and flows.
+2. **Enhanced Findings**: For each threat, enhance the description by adding potential mitigation strategies and any additional insights that could help in understanding or addressing the threat.
+
+### Output Format:
+- **Overview**: A paragraph summarizing the threat model.
+- **Enhanced Threats**: A list of threats with their original details plus an "Enhanced Description" field containing your insights and mitigations.
+`;
+
+    try {
+        let response;
+        if (aiSettings.provider === 'openai') {
+            // OpenAI API call
+            response = await $.ajax({
+                url: 'https://api.openai.com/v1/chat/completions',
+                type: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${aiSettings.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({
+                    model: 'gpt-4o',
+                    messages: [
+                        { role: 'system', content: 'You are a cybersecurity expert.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 1500,
+                    temperature: 0.7
+                })
+            });
+
+            const aiResponse = response.choices[0].message.content;
+            const [overviewSection, threatsSection] = aiResponse.split('### Enhanced Threats');
+            const overview = overviewSection.replace('### Overview', '').trim();
+            const enhancedThreatsLines = threatsSection.trim().split('\n').filter(line => line.trim());
+            const enhancedThreats = threats.map((threat, index) => {
+                const enhancedDesc = enhancedThreatsLines[index] || '';
+                return { ...threat, enhancedDescription: enhancedDesc };
+            });
+
+            return { overview, enhancedThreats };
+        } else if (aiSettings.provider === 'grok') {
+            // Grok API call
+            response = await $.ajax({
+                url: 'https://api.x.ai/v1/chat/completions',
+                type: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${aiSettings.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({
+                    model: 'grok-3',
+                    messages: [
+                        { role: 'system', content: 'You are a cybersecurity expert.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 1500,
+                    temperature: 0.7
+                })
+            });
+
+            const aiResponse = response.choices[0].message.content;
+            const [overviewSection, threatsSection] = aiResponse.split('### Enhanced Threats');
+            const overview = overviewSection.replace('### Overview', '').trim();
+            const enhancedThreatsLines = threatsSection.trim().split('\n').filter(line => line.trim());
+            const enhancedThreats = threats.map((threat, index) => {
+                const enhancedDesc = enhancedThreatsLines[index] || '';
+                return { ...threat, enhancedDescription: enhancedDesc };
+            });
+
+            return { overview, enhancedThreats };
+        }
+    } catch (error) {
+        console.error("Error calling AI API:", error);
+        alert("Failed to enhance threat model with AI: " + (error.responseJSON?.error?.message || error.message));
+        return { overview: "", enhancedThreats: threats };
+    }
 }
 
 function analyze() {
     var elements = mainCanvas.getObjects().filter(obj => obj instanceof fabric.ElementWithPorts).map(e => ({
         type: e.data.type,
-        label: e.labelText, // Ensure labelText is captured
-        sublabel: e.sublabelText, // Ensure sublabelText is captured
+        label: e.labelText,
+        sublabel: e.sublabelText,
         isEncrypted: e.data.isEncrypted,
         implementsAuthenticationScheme: e.data.implementsAuthenticationScheme,
         sanitizesInput: e.data.sanitizesInput,
@@ -824,22 +938,34 @@ function analyze() {
         type: "POST",
         contentType: "application/json",
         data: JSON.stringify({ name: "Custom System", elements: elements, flows: flows, feedConfig: feedConfig }),
-        success: function(response) {
+        success: async function(response) {
+            let threats = response.threats.map(threat => ({
+                component: threat.component,
+                reason: threat.reason,
+                threat: threat.threat,
+                severity: threat.severity,
+                best_practices: threat.best_practices,
+                comment: threat.comment || "",
+                status: threat.status || "Open"
+            }));
+
+            // Check if AI-supported analysis is enabled
+            if ($("#ai-supported-analysis").is(":checked")) {
+                const { overview, enhancedThreats } = await enhanceWithAI(elements, flows, threats);
+                $("#threat-model-overview-text").text(overview);
+                $("#threat-model-overview").show();
+                threats = enhancedThreats;
+            } else {
+                $("#threat-model-overview").hide();
+            }
+
             // Store the project data with findings
             projectData = {
                 elements: elements,
                 flows: flows,
                 boundaries: boundaries,
                 feedConfig: feedConfig,
-                threats: response.threats.map(threat => ({
-                    component: threat.component,
-                    reason: threat.reason,
-                    threat: threat.threat,
-                    severity: threat.severity,
-                    best_practices: threat.best_practices,
-                    comment: threat.comment || "",
-                    status: threat.status || "Open"
-                }))
+                threats: threats
             };
 
             // Display threats in the UI
@@ -852,12 +978,12 @@ function analyze() {
             var tableBody = $("#threat-table-body");
             tableBody.empty();
 
-            response.threats.forEach((threat, index) => {
+            threats.forEach((threat, index) => {
                 var row = `
                     <tr ${threat.status !== "Open" ? 'style="background-color: #d3d3d3;"' : ''}>
                         <td>${threat.component}</td>
                         <td>${threat.reason}</td>
-                        <td>${threat.threat}</td>
+                        <td>${threat.threat}${threat.enhancedDescription ? '<br><strong>Enhanced:</strong> ' + threat.enhancedDescription : ''}</td>
                         <td>
                             <select id="severity-${index}" onchange="updateThreat(${index}, 'severity', this.value)">
                                 <option value="Low" ${threat.severity === 'Low' ? 'selected' : ''}>Low</option>
@@ -1167,7 +1293,7 @@ function loadProjectFile(event) {
                         <tr ${threat.status !== "Open" ? 'style="background-color: #d3d3d3;"' : ''}>
                             <td>${threat.component}</td>
                             <td>${threat.reason}</td>
-                            <td>${threat.threat}</td>
+                            <td>${threat.threat}${threat.enhancedDescription ? '<br><strong>Enhanced:</strong> ' + threat.enhancedDescription : ''}</td>
                             <td>
                                 <select id="severity-${index}" onchange="updateThreat(${index}, 'severity', this.value)">
                                     <option value="Low" ${threat.severity === 'Low' ? 'selected' : ''}>Low</option>
@@ -1191,6 +1317,14 @@ function loadProjectFile(event) {
                 console.log("No threats to display");
             }
 
+            // Display AI-generated threat model overview if available
+            if (projectData.threatModelOverview) {
+                $("#threat-model-overview-text").text(projectData.threatModelOverview);
+                $("#threat-model-overview").show();
+            } else {
+                $("#threat-model-overview").hide();
+            }
+
             mainCanvas.renderAll();
             alert("Project loaded successfully!");
         } catch (error) {
@@ -1202,7 +1336,7 @@ function loadProjectFile(event) {
 }
 
 // Expose functions to global scope
-window.saveFeedConfig = saveFeedConfig;
+window.saveApiSettings = saveApiSettings;
 window.analyze = analyze;
 window.autoAWS = autoAWS;
 window.startWizard = startWizard;
